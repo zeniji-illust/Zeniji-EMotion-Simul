@@ -1,119 +1,83 @@
-# 📂 PROJECT_PLAN.md: Zeniji v3.0 (Open Source Edition)
 
-## 1. 프로젝트 개요 (Project Overview)
-**Zeniji**는 로컬 LLM과 이미지 생성 AI를 활용한 **"연구용 연애 시뮬레이터"**입니다.
-v3.0의 핵심은 **"ComfyUI 의존적 아키텍처"**입니다. 복잡한 이미지 생성 파이프라인을 Python에서 직접 구현하지 않고, 로컬에 실행된 **ComfyUI API**를 호출하여 해결합니다.
 
-### 🎯 핵심 변경 사항
-1.  **이미지 엔진:** Python `diffusers` 라이브러리 제거 → **ComfyUI API 연동**으로 변경.
-2.  **LLM 업그레이드:** Qwen 2.5 3B → **Qwen 2.5 14B (GGUF/Int4)** 사용.
-3.  **효율적 렌더링:** 매 턴 이미지를 생성하지 않음. **LLM이 "장면 변화가 필요하다"고 판단할 때만** ComfyUI를 호출함.
-4.  **16GB VRAM 전략:** **"순차적 실행(Sequential Execution)"**. LLM과 ComfyUI가 VRAM을 교대로 사용함.
+# 🚀 Zeniji Emotion Simul: 최종 통합 아키텍처 및 구현 계획
 
----
+## 1. 프로젝트 개요 (The Zeniji Core)
 
-## 2. 시스템 아키텍처 (System Architecture)
+Zeniji Emotion Simul은 **심리 시뮬레이션의 정밀성**과 **ComfyUI 기반의 VRAM 효율성**을 결합한 연구용 프로젝트입니다.
 
-### 🏗️ The Director (Python App)
-* **역할:** 게임 로직, 대화 생성, 장면 연출 판단, UI(Gradio).
-* **LLM:** Qwen 2.5 14B (4-bit/8-bit GGUF).
-* **VRAM 관리:** 대화 생성 후, ComfyUI 호출이 필요하면 **LLM을 RAM(CPU)으로 내리거나 Unload**하여 VRAM을 확보함.
+- **LLM 엔진:** Qwen 2.5 14B Q6-K GGUF 사용.
+    
+- **이미지 엔진:** 로컬 실행 ComfyUI API를 통한 이미지 생성 (Zhitu 워크플로우).
+    
+- **핵심 전략:** **Memory Dance**를 통한 16GB VRAM 극복 (LLM $\rightleftharpoons$ ComfyUI 교대 로드).
+    
 
-### 🎨 The Artist (ComfyUI Server)
-* **역할:** 이미지 생성 전담.
-* **주소:** `http://127.0.0.1:8188` (기본값)
-* **워크플로우:** `Flux.1` 또는 `Zhitu` 기반의 API 포맷 JSON (`.json`) 사용.
+## 2. 시스템 아키텍처 (Module Map)
 
----
+LLM의 연기와 Python의 로직이 분리된 **Director-Engine-Artist** 구조입니다.
 
-## 3. 핵심 로직: "Scene Change Detection"
+|**모듈 이름 (파일)**|**페르소나**|**주요 기능**|
+|---|---|---|
+|**`app.py`**|🎮 Gradio UI|메인 실행. Gradio UI 구성, 비동기(Async) 루프 및 세션 상태 관리.|
+|**`brain.py`**|🧠 The Director|**핵심 판단.** LLM 프롬프트 최종 조립, JSON 파싱, 이미지 생성 요청 판단, `memory_manager` 제어.|
+|**`logic_engine.py`**|⚙️ The Engine|**게임 규칙 및 수치 관리.** PAD/ITD 6축 관리, 관성 적용, 가챠(Multiplier), 뱃지 조건 판정.|
+|**`state_manager.py`**|📊 Data Model|`CharacterState` (6축 수치, 뱃지) 정의 및 데이터 업데이트 (관성/클램핑 적용).|
+|**`comfy_client.py`**|🎨 The Artist|**ComfyUI 통신 전담.** 워크플로우 로드/수정, API 큐 전송, 이미지 수신.|
+|**`memory_manager.py`**|💾 The Handler|**VRAM 교대 관리.** Qwen 모델의 `load`/`unload` 및 $torch.cuda.empty\_cache()$ 실행.|
 
-LLM은 단순 대화뿐만 아니라 **연출 감독(Director)** 역할을 수행해야 합니다.
-매 턴마다 아래 JSON 포맷으로 응답을 생성해야 합니다.
+## 3. 핵심 로직: 지능형 연출 및 델타 반영
 
-### 🧠 System Prompt 핵심 요구사항
-```json
+### 3-1. LLM 출력 포맷 (Director's Instruction)
+
+LLM은 **연기, 로직, 연출 지시**를 한 번의 호출로 모두 처리합니다.
+
+JSON
+
+```
 {
-  "thought": "캐릭터의 속마음 (Internal Monologue)",
+  "thought": "캐릭터의 속마음",
   "speech": "캐릭터의 대사",
-  "visual_change_detected": true, // 또는 false
-  "visual_prompt": "영어 프롬프트 (Ex: standing in the rain, crying, dark alley, cinematic lighting)",
-  "reason": "이미지 생성이 필요한 이유 (Ex: 장소가 학교에서 집으로 변경됨)",
-  "choices": ["선택지1", "선택지2", "선택지3"]
+  "visual_change_detected": true, // 이미지 생성 요청 (true/false)
+  "visual_prompt": "english tags based on expression/scene",
+  "reason": "이미지 생성이 필요한 이유",
+  "proposed_delta": {"P": 5, "I": 3, "T": -2} // Python Engine이 증폭할 기본 델타값 (Max 12 제한)
 }
-🎬 이미지 생성 트리거 조건 (visual_change_detected: true)
-장소 이동: (카페 → 공원)
+```
 
-의상/자세 변경: (교복 → 사복, 앉음 → 일어섬)
+### 3-2. 이미지 생성 트리거 조건 (연출 판단)
 
-감정의 격변: (무표정 → 활짝 웃음, 우는 얼굴)
+`visual_change_detected: true`를 유발하는 조건:
 
-강제 갱신: 플레이어가 요청하거나 N턴 이상 이미지가 바뀌지 않았을 때.
+- **장소/의상 변경** (팀플 $\rightarrow$ 카페).
+    
+- **감정의 격변** (수치 극한 돌파, $A \approx 100$ 또는 $P \approx 0$).
+    
+- **특수 뱃지 해금** (얀데레, Broken Doll 활성화 시).
+    
+- **강제 갱신** (N턴 이상 이미지 미갱신).
+    
 
-4. VRAM 16GB 생존 전략 (The Memory Dance)
-Qwen 14B(~10GB)와 Flux(~12GB)는 동시에 VRAM에 올라갈 수 없습니다. 따라서 Python 코드는 아래 순서를 엄격히 지켜야 합니다.
+### 3-3. 심리 분석 보고서 (엔딩 시스템)
 
-[Python] Qwen 14B 로드 (VRAM 점유)
+게임 종료 시, **LLM**은 **'분석가'** 역할로 전환되어 **최종 상태**와 **달성하지 못한 뱃지들의 요구 조건**을 비교하여 **실패 원인(Gap)**을 분석하고 **다음 전략**을 제시합니다.
 
-[Python] 대화 생성 및 JSON 파싱
+## 4. VRAM 16GB 생존 전략 (Memory Dance)
 
-[Decision] visual_change_detected 확인
+LLM(Qwen 14B)과 ComfyUI가 VRAM을 교대하는 순차적 실행을 엄격히 준수합니다.
 
-False: 기존 이미지 유지 -> 즉시 응답 (Fast Path)
+|**단계**|**주체 (Module)**|**상태 (VRAM Occupancy)**|**액션 및 설명**|
+|---|---|---|---|
+|**Fast Path (False)**|`app.py`|Qwen **로드 상태 유지**.|이미지 교체 없이 즉시 응답.|
+|**Slow Path (True)**|`brain.py` $\rightarrow$ `comfy_client.py`|Qwen $\rightarrow$ **Unload**. ComfyUI **로드**|**VRAM 교대:** Qwen 언로드 후, $torch.cuda.empty\_cache()$ 실행, ComfyUI 호출.|
 
-True: 이미지 생성 필요 -> Slow Path 진입
+## 5. 최종 구현 단계 (Optimized for Efficiency)
 
-[Slow Path]
+디버깅 효율성을 극대화하기 위해, 복잡한 하드웨어 의존성 로직을 가장 나중에 구현합니다.
 
-a. Qwen 모델 Unload (또는 CPU로 이동). torch.cuda.empty_cache() 필수.
-
-b. ComfyUI API 호출 (웹소켓으로 대기).
-
-c. ComfyUI가 이미지 생성 후 반환.
-
-d. Qwen 모델 다시 VRAM 로드.
-
-5. 구현 단계 (Implementation Steps)
-Phase 1: ComfyUI Client 모듈 (comfy_client.py)
-websocket-client를 사용하여 ComfyUI 서버와 통신.
-
-워크플로우 JSON 파일을 읽어와서 positive_prompt 부분만 수정하여 큐에 전송.
-
-생성 완료 시 이미지 데이터를 받아오는 클래스 구현.
-
-Phase 2: Intelligent Brain (brain.py)
-llama-cpp-python 또는 transformers를 사용하여 Qwen 14B 로드.
-
-JSON Output Parsing 기능 구현 (재시도 로직 포함).
-
-Memory Manager: unload_model() 및 load_model() 메서드 구현.
-
-Phase 3: Game Loop & UI (app.py)
-Gradio 기반 UI 구성 (좌측 이미지, 우측 채팅/로그).
-
-비동기 처리를 통해 이미지 생성 중에는 "Rendering..." 상태 표시.
-
-세션별 상태 관리 (PAD 수치, 대화 히스토리).
-
-6. 폴더 구조 (Directory Structure)
-Plaintext
-
-Zeniji_v3/
-├── workflows/
-│   └── flux_api_workflow.json    # ComfyUI에서 'Save (API Format)'으로 저장한 파일
-├── scenarios/
-│   └── character_setup.yaml      # 캐릭터 설정 (프롬프트, 말투 등)
-├── src/
-│   ├── comfy_client.py           # ComfyUI 통신
-│   ├── brain.py                  # LLM 및 로직
-│   ├── utils.py                  # 기타 유틸
-│   └── memory_manager.py         # VRAM 관리
-├── app.py                        # 메인 실행 (Gradio)
-├── requirements.txt
-└── README.md
-7. 개발자 노트 (Developer Notes)
-ComfyUI 의존성: 사용자는 반드시 ComfyUI를 켜둬야 함. (에러 처리 필수: "ComfyUI 연결 실패. 8188 포트를 확인하세요.")
-
-확장성: 나중에 워크플로우 파일만 교체하면 실사/애니/일러스트 등 화풍 변경 가능.
-
-Qwen 14B: GGUF 포맷을 사용하여 로컬 구동 최적화. (GPU Offload 비율 조절 가능하게 설정)
+|**Phase**|**목표**|**구현 내용**|
+|---|---|---|
+|**Phase 1**|**Text-Only CLI MVP**|`logic_engine.py`와 `brain.py`로 6축 수치 변화, 가챠, 뱃지 판정 등 **핵심 게임 밸런스**를 CLI 환경에서 확정.|
+|**Phase 2**|**Gradio UI 적용**|`app.py`로 Gradio UI 구성. 채팅 및 **수치(PAD/ITD) 출력 UI** 구현.|
+|**Phase 3**|**Comfy API Client 검증**|`comfy_client.py`로 ComfyUI API 통신 성공 검증. 워크플로우 수정 후 이미지 수신 확인.|
+|**Phase 4**|**Memory Manager 통합**|`memory_manager.py`로 Qwen 로드/언로드 및 VRAM 교대 로직 구현. 모든 모듈 통합하여 최종 앱 완성.|
