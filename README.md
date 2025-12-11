@@ -11,11 +11,20 @@ ZEMS는 **심리 조각 시뮬레이터(Psychological Sculpting Simulator)**입�
 
 
 💎 6가지 감정의 축 / Six Axes
+
 그녀 안에는 여섯 개의 축이 있습니다.
-쾌락 / Pleasure지금 행복한가, 고통스러운가각성 / Arousal차분한가, 흥분 상태인가지배 / Dominance당신을 통제하는가, 통제받는가친밀 / Intimacy당신을 사랑하는가, 타인으로 보는가신뢰 / Trust당신을 믿는가, 의심하는가의존 / Dependency당신 없이 살 수 있는가, 없는가
+
+쾌락 / Pleasure지금 행복한가, 고통스러운가
+각성 / Arousal차분한가, 흥분 상태인가
+지배 / Dominance당신을 통제하는가, 통제받는가
+친밀 / Intimacy당신을 사랑하는가, 타인으로 보는가
+신뢰 / Trust당신을 믿는가, 의심하는가
+의존 / Dependency당신 없이 살 수 있는가, 없는가
+
 이 축들의 조합이 그녀의 기분(Mood), 말투, 그리고 **당신과의 관계(Relationship)**를 결정합니다.
 
 🎨 그녀가 눈앞에 나타납니다
+
 ZEMS는 텍스트만의 시뮬레이터가 아닙니다. 대화와 이미지가 함께 움직이는 신개념 심리 시뮬레이터입니다.
 특정 순간, 그녀의 모습이 실시간으로 생성됩니다:
 
@@ -80,7 +89,13 @@ Her responses aren't scripted. They're shaped in real-time by six emotional axes
 
 💎 Six Emotional Axes
 Six axes define who she is.
-PleasureIs she happy, or in pain?ArousalCalm, or on edge?DominanceDoes she control you, or submit?IntimacyDoes she love you, or see you as a stranger?TrustDoes she believe you, or doubt everything?DependencyCan she live without you, or not?
+Pleasure Is she happy, or in pain?
+Arousal Calm, or on edge?
+Dominance Does she control you, or submit?
+Intimacy Does she love you, or see you as a stranger?
+Trust Does she believe you, or doubt everything? 
+Dependency Can she live without you, or not?
+
 These axes combine to determine her Mood, her tone, and your Relationship.
 
 🎨 She Appears Before You
