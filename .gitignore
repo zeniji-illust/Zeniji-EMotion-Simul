@@ -23,6 +23,7 @@ env/
 *~
 
 # Project specific
+planning/
 models/
 *.log
 .env
