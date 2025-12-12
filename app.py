@@ -50,18 +50,48 @@ class GameApp:
         self.dev_mode = dev_mode
         self.brain = None
         self.model_loaded = False
-        self.current_image: Optional[bytes] = None
+        self.current_image: Optional[Image.Image] = None  # PIL Image 저장
         self.comfy_client = None
     
     def load_config(self) -> Dict:
-        """설정 파일 로드"""
+        """설정 파일 로드 - None 값 정리"""
         if CONFIG_FILE.exists():
             try:
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    config = json.load(f)
+                    # None 값이 있으면 기본값으로 대체
+                    return self._sanitize_config(config)
             except Exception as e:
                 logger.warning(f"Failed to load config: {e}")
         return self._default_config()
+    
+    def _sanitize_config(self, config: Dict) -> Dict:
+        """설정에서 None 값을 기본값으로 대체"""
+        default = self._default_config()
+        
+        # initial_stats의 None 값 처리
+        initial_stats = config.get("initial_stats", {}) or {}
+        sanitized_stats = {}
+        for key in ["P", "A", "D", "I", "T", "Dep"]:
+            val = initial_stats.get(key)
+            if val is None:
+                val = default["initial_stats"][key]
+            sanitized_stats[key] = float(val) if val is not None else default["initial_stats"][key]
+        
+        # character의 age 처리
+        character = config.get("character", {}) or {}
+        char_age = character.get("age")
+        if char_age is None:
+            char_age = default["character"]["age"]
+        
+        # None 값이 있으면 기본값으로 병합
+        result = default.copy()
+        result.update(config)
+        result["initial_stats"] = sanitized_stats
+        if "character" in result:
+            result["character"]["age"] = int(char_age) if char_age is not None else default["character"]["age"]
+        
+        return result
     
     def _default_config(self) -> Dict:
         """기본 설정 반환"""
@@ -101,17 +131,18 @@ class GameApp:
             return False
     
     def apply_preset(self, preset_name: str) -> Tuple[float, float, float, float, float, float, str, str]:
-        """프리셋 적용"""
+        """프리셋 적용 - 모든 수치가 확실히 숫자가 되도록 보장"""
         preset = PRESETS.get(preset_name, {})
+        # get(key, default)를 써도 되지만, 혹시 None이 들어있는 경우를 대비해 or 처리
         return (
-            preset.get("P", 50.0),
-            preset.get("A", 40.0),
-            preset.get("D", 40.0),
-            preset.get("I", 20.0),
-            preset.get("T", 50.0),
-            preset.get("Dep", 0.0),
-            preset.get("appearance", ""),
-            preset.get("personality", "")
+            float(preset.get("P") or 50.0),
+            float(preset.get("A") or 40.0),
+            float(preset.get("D") or 40.0),
+            float(preset.get("I") or 20.0),
+            float(preset.get("T") or 50.0),
+            float(preset.get("Dep") or 0.0),
+            str(preset.get("appearance") or ""),
+            str(preset.get("personality") or "")
         )
     
     def validate_and_start(
@@ -123,6 +154,15 @@ class GameApp:
         initial_context, initial_background
     ) -> Tuple[str, str, list, str, str, str, str, str, str]:
         """설정 검증 및 시작 (첫 대화 자동 생성)"""
+        # Slider 값들이 None이면 기본값 사용
+        p_val = p_val if p_val is not None else 50.0
+        a_val = a_val if a_val is not None else 40.0
+        d_val = d_val if d_val is not None else 40.0
+        i_val = i_val if i_val is not None else 20.0
+        t_val = t_val if t_val is not None else 50.0
+        dep_val = dep_val if dep_val is not None else 0.0
+        char_age = char_age if char_age is not None else 21
+        
         # 최대값 검증 (70 제한)
         max_val = 70.0
         stats = {"P": p_val, "A": a_val, "D": d_val, "I": i_val, "T": t_val, "Dep": dep_val}
@@ -211,7 +251,14 @@ class GameApp:
                     
                     # appearance와 background를 조합해서 이미지 생성
                     appearance = config_data["character"].get("appearance", "")
+                    char_age = config_data["character"].get("age", 21)
                     background = config_data.get("initial_background", "college library table, evening light")
+                    
+                    # appearance에 나이 추가 (이미지 생성용)
+                    if appearance and f"{char_age} years old" not in appearance.lower():
+                        appearance = f"{char_age} years old, {appearance}".strip()
+                    elif not appearance:
+                        appearance = f"{char_age} years old"
                     
                     # visual_prompt 생성: background를 포함한 시각적 묘사
                     visual_prompt = f"background: {background}, expression: neutral, looking at viewer"
@@ -226,6 +273,8 @@ class GameApp:
                     if image_bytes:
                         # PIL Image로 변환
                         initial_image = Image.open(io.BytesIO(image_bytes))
+                        # 현재 이미지로 저장
+                        self.current_image = initial_image
                         logger.info("Initial image generated successfully")
                     else:
                         logger.warning("Failed to generate initial image")
@@ -288,7 +337,7 @@ class GameApp:
         stats = response.get("stats", {})
         mood = response.get("mood", "Neutral")
         relationship = response.get("relationship_status", "Stranger")
-        gacha_tier = response.get("gacha_tier", "normal")
+        gacha_tier = response.get("gacha_tier", "normal")  # 내부 시스템 용어
         multiplier = response.get("multiplier", 1.0)
         final_delta = response.get("final_delta", {})
         new_badge = response.get("new_badge")
@@ -310,7 +359,9 @@ class GameApp:
         
         if gacha_tier != "normal":
             tier_emoji = {"jackpot": "🎰", "surprise": "✨", "critical": "💥"}.get(gacha_tier, "🎲")
-            output_lines.append(f"{tier_emoji} **{gacha_tier.upper()}** (배율: x{multiplier:.1f})")
+            # 사용자에게는 "반응 정도"로 표시
+            reaction_level = {"jackpot": "극진한 반응", "surprise": "놀라운 반응", "critical": "강렬한 반응"}.get(gacha_tier, "특별한 반응")
+            output_lines.append(f"{tier_emoji} **{reaction_level}** (배율: x{multiplier:.1f})")
         
         if new_badge:
             output_lines.append(f"🏆 **뱃지 획득: {new_badge}**")
@@ -336,7 +387,27 @@ class GameApp:
             else:
                 return '<span style="color: black;">(0)</span>'
         
+        # 반응 정도 표시 (전구 아이콘)
+        def format_reaction_indicators(tier: str) -> str:
+            """반응 정도에 따라 전구/번개/폭발 아이콘 표시"""
+            if tier == "jackpot":
+                # 폭발 이모티콘 4개
+                return "💥 💥 💥 💥"
+            elif tier == "surprise":
+                # 번개 3개, 꺼진 전구 1개
+                return "⚡ ⚡ ⚡ ⚫"
+            elif tier == "critical":
+                # 노란 전구 2개, 꺼진 전구 2개
+                return "💡 💡 ⚫ ⚫"
+            else:  # normal
+                # 노란 전구 1개, 꺼진 전구 3개
+                return "💡 ⚫ ⚫ ⚫"
+        
+        reaction_indicators = format_reaction_indicators(gacha_tier)
+        
         stats_text = f"""
+**반응 정도:** {reaction_indicators} (x{multiplier:.1f})
+
 **6축 수치:**
 - P (쾌락): {stats.get('P', 0):.0f} {format_delta('P')}
 - A (각성): {stats.get('A', 0):.0f} {format_delta('A')}
@@ -356,15 +427,28 @@ class GameApp:
         visual_change_detected = response.get("visual_change_detected", False)
         
         if visual_change_detected and config.IMAGE_MODE_ENABLED:
+            # LLM 모델 offload를 위한 1초 대기
+            import time
+            logger.info("Waiting 1 second for LLM model offload...")
+            time.sleep(1.0)
+            logger.info("Starting image generation...")
+            
             try:
                 # ComfyClient 초기화 (아직 안 되어 있으면)
                 if self.comfy_client is None:
                     self.comfy_client = ComfyClient()
                     logger.info("ComfyClient initialized")
                 
-                # 설정에서 appearance 가져오기
+                # 설정에서 appearance와 나이 가져오기
                 saved_config = self.load_config()
                 appearance = saved_config["character"].get("appearance", "")
+                char_age = saved_config["character"].get("age", 21)
+                
+                # appearance에 나이 추가 (이미지 생성용)
+                if appearance and f"{char_age} years old" not in appearance.lower():
+                    appearance = f"{char_age} years old, {appearance}".strip()
+                elif not appearance:
+                    appearance = f"{char_age} years old"
                 
                 # response에서 visual_prompt와 background 가져오기
                 visual_prompt = response.get("visual_prompt", "")
@@ -390,6 +474,8 @@ class GameApp:
                 if image_bytes:
                     # PIL Image로 변환
                     image = Image.open(io.BytesIO(image_bytes))
+                    # 현재 이미지로 저장
+                    self.current_image = image
                     logger.info("Image generated successfully")
                 else:
                     logger.warning("Failed to generate image (returned None)")
@@ -398,6 +484,14 @@ class GameApp:
                 import traceback
                 logger.error(traceback.format_exc())
                 # 이미지 생성 실패해도 대화는 계속 진행
+        
+        # 새 이미지가 생성되지 않았으면 이전 이미지 유지 (gr.update로 자동고침 방지)
+        if image is None:
+            if self.current_image is not None:
+                # 이전 이미지 유지 (자동고침 방지)
+                image = gr.update()
+            else:
+                image = None
         
         choices_text = "다음 대사를 입력하세요."
         thought_text = f"💭 **속마음**: {thought}" if thought else ""
@@ -439,11 +533,16 @@ class GameApp:
                                 value=saved_config["character"].get("name", "예나"),
                                 placeholder="캐릭터 이름"
                             )
+                            # character 정보 안전하게 가져오기
+                            character_info = saved_config.get("character") or {}
+                            char_age_val = character_info.get("age")
+                            char_age_val = int(char_age_val) if char_age_val is not None else 21
+                            
                             char_age = gr.Slider(
                                 label="나이",
                                 minimum=18,
                                 maximum=100,
-                                value=saved_config["character"].get("age", 21),
+                                value=char_age_val,
                                 step=1
                             )
                             char_gender = gr.Radio(
@@ -472,13 +571,31 @@ class GameApp:
                     gr.Markdown("### 📊 심리 지표 설정 (6축 시스템)")
                     gr.Markdown("각 수치는 0~100 사이이며, 초기값은 **최대 70**으로 제한됩니다.")
                     
+                    # initial_stats가 없거나 None일 수 있으므로 안전하게 처리
+                    initial_stats = saved_config.get("initial_stats") or {}
+                    
+                    def safe_get_stat(key: str, default: float) -> float:
+                        """안전하게 통계 값 가져오기 (None 체크) - 명시적으로 한 번 더 or 처리"""
+                        val = initial_stats.get(key)
+                        if val is None:
+                            return default
+                        try:
+                            result = float(val)
+                            # NaN이나 inf 체크
+                            if not (0 <= result <= 100):
+                                return default
+                            return result
+                        except (ValueError, TypeError):
+                            return default
+                    
                     with gr.Row():
                         with gr.Column():
+                            # 명시적으로 or 처리로 None 방지
                             p_val = gr.Slider(
                                 label="P (Pleasure) - 쾌락",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("P", 50.0),
+                                value=safe_get_stat("P", 50.0) or 50.0,
                                 step=1.0,
                                 info="관계의 긍정/부정"
                             )
@@ -486,7 +603,7 @@ class GameApp:
                                 label="A (Arousal) - 각성",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("A", 40.0),
+                                value=safe_get_stat("A", 40.0) or 40.0,
                                 step=1.0,
                                 info="긴장감/에너지"
                             )
@@ -494,7 +611,7 @@ class GameApp:
                                 label="D (Dominance) - 지배",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("D", 40.0),
+                                value=safe_get_stat("D", 40.0) or 40.0,
                                 step=1.0,
                                 info="관계의 주도권"
                             )
@@ -503,7 +620,7 @@ class GameApp:
                                 label="I (Intimacy) - 친밀",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("I", 20.0),
+                                value=safe_get_stat("I", 20.0) or 20.0,
                                 step=1.0,
                                 info="정서적 친밀감"
                             )
@@ -511,7 +628,7 @@ class GameApp:
                                 label="T (Trust) - 신뢰",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("T", 50.0),
+                                value=safe_get_stat("T", 50.0) or 50.0,
                                 step=1.0,
                                 info="신뢰도"
                             )
@@ -519,7 +636,7 @@ class GameApp:
                                 label="Dep (Dependency) - 의존",
                                 minimum=0,
                                 maximum=100,
-                                value=saved_config["initial_stats"].get("Dep", 0.0),
+                                value=safe_get_stat("Dep", 0.0) or 0.0,
                                 step=1.0,
                                 info="의존/집착도"
                             )
@@ -528,8 +645,13 @@ class GameApp:
                     with gr.Row():
                         for preset_name in PRESETS.keys():
                             preset_btn = gr.Button(preset_name, variant="secondary")
+                            # lambda 클로저 문제 해결 및 fn 명시
+                            def make_preset_handler(name):
+                                def handler():
+                                    return self.apply_preset(name)
+                                return handler
                             preset_btn.click(
-                                lambda name=preset_name: self.apply_preset(name),
+                                fn=make_preset_handler(preset_name),
                                 inputs=[],
                                 outputs=[p_val, a_val, d_val, i_val, t_val, dep_val, appearance, personality]
                             )
@@ -575,7 +697,7 @@ class GameApp:
                     
                     def on_submit(message, history):
                         if not self.model_loaded:
-                            return history, "**오류**: 먼저 초기 설정에서 '저장 및 바로 시작'을 눌러주세요.", "", None, "", "", ""
+                            return history, "**오류**: 먼저 초기 설정에서 '저장 및 바로 시작'을 눌러주세요.", "", gr.update(), "", "", ""
                         new_history, output, stats, image, choices, thought, action = self.process_turn(message, history)
                         return new_history, "", stats, image, choices, thought, action
                     

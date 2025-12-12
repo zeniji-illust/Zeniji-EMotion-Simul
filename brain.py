@@ -249,10 +249,12 @@ class Brain:
             player_name = player_info.get("name", "선배")
             player_gender = player_info.get("gender", "남성")
         
-        # 초기 설정 정보 (첫 턴일 때)
+        # 초기 설정 정보
         initial_context_section = ""
         character_profile_section = ""
-        if self.state.total_turns == 0 and self.initial_config:
+        
+        # 초기 설정에서 캐릭터 정보 가져오기 (모든 턴에서 사용)
+        if self.initial_config:
             char_info = self.initial_config.get("character", {})
             char_name = char_info.get("name", "예나")
             char_age = char_info.get("age", 21)
@@ -260,33 +262,33 @@ class Brain:
             appearance = char_info.get("appearance", "")
             personality = char_info.get("personality", "")
             initial_context = self.initial_config.get("initial_context", "")
-            
-            # 캐릭터 프로필 섹션
-            character_profile_section = f"""## 1. 캐릭터 프로필
+        else:
+            # 기본값 (초기 설정이 없을 때)
+            char_name = "예나"
+            char_age = 21
+            char_gender = "여성"
+            appearance = ""
+            personality = ""
+            initial_context = ""
+        
+        # 캐릭터 프로필 섹션 (모든 턴에서 초기 설정의 나이 포함)
+        character_profile_section = f"""## 1. 캐릭터 프로필
 - **이름**: {char_name} ({char_age}세, {char_gender})
 - **상대방**: {player_name} ({player_gender})"""
-            if appearance:
-                character_profile_section += f"\n- **외모**: {appearance}"
-            if personality:
-                character_profile_section += f"\n- **성격**: {personality}"
-            character_profile_section += "\n- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음)."
-            character_profile_section += "\n- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외)."
-            
-            # 초기 상황 섹션
-            if initial_context:
-                initial_context_section = f"""
+        if appearance:
+            character_profile_section += f"\n- **외모**: {appearance}"
+        if personality:
+            character_profile_section += f"\n- **성격**: {personality}"
+        character_profile_section += "\n- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음)."
+        character_profile_section += "\n- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외)."
+        
+        # 초기 상황 섹션 (첫 턴일 때만)
+        if self.state.total_turns == 0 and initial_context:
+            initial_context_section = f"""
 ## 0. 초기 상황
 {initial_context}
 위 상황을 바탕으로 첫 대화를 시작하세요. {player_name}님의 입력에 자연스럽게 반응하며, 설정된 초기 상황의 맥락을 유지하세요.
 """
-        else:
-            # 기본 캐릭터 프로필 (초기 설정이 없을 때)
-            character_profile_section = f"""## 1. 캐릭터 프로필
-- **이름**: 예나 (21세, 대학교 후배)
-- **상대방**: {player_name} ({player_gender})
-- **성격**: 밝고 활발하지만, 좋아하는 사람 앞에서는 수줍음이 많음.
-- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음).
-- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외)."""
         
         prompt = f"""당신은 감정 시뮬레이션의 캐릭터를 연기합니다..
 모든 출력은 반드시 **JSON 형식**이어야 하며, 당신은 인공지능이 아닌 시뮬레이션 속 캐릭터 그 자체로 존재해야 합니다.

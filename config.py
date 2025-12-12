@@ -53,9 +53,9 @@ STATUS_TRANSITIONS = {
 
 # 가챠 시스템 설정
 GACHA_TIERS = {
-    "jackpot": {"prob": 0.001, "multiplier": 10.0},  # 0.1%
-    "surprise": {"prob": 0.009, "multiplier": 5.0},  # 0.9%
-    "critical": {"prob": 0.04, "multiplier": 2.5},  # 4.0%
+    "jackpot": {"prob": 0.001, "multiplier": 5.0},  # 0.1%
+    "surprise": {"prob": 0.009, "multiplier": 2.5},  # 0.9%
+    "critical": {"prob": 0.04, "multiplier": 1.5},  # 4.0%
     "normal": {"prob": 0.95, "multiplier": 1.0}     # 95%
 }
 

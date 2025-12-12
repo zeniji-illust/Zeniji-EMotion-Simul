@@ -7,17 +7,17 @@
     "name": "예나",
     "age": 21,
     "gender": "여성",
-    "appearance": "korean beauty, pure face, gorgeous but cute, college fresh girl, cute hair with long pigtails",
+    "appearance": "she is korean beauty, gorgeous but cute and pure face, tied hair with cute long pigtails",
     "personality": "밝고 활발하지만 좋아하는 사람 앞에서는 수줍음이 많음"
   },
   "initial_stats": {
     "P": 50.0,
-    "A": 60.0,
-    "D": 40.0,
-    "I": 20.0,
-    "T": 30.0,
-    "Dep": 0.0
+    "A": 66.0,
+    "D": 30.0,
+    "I": 50.0,
+    "T": 50.0,
+    "Dep": 40.0
   },
-  "initial_context": "예나는 오랜만에 소개팅에 나왔다. 원래 이상형이던 문돼남을 만나기로 했다. 너무 떨리고 흥분된다. 하지만 침착한 척 하고 있다. ",
+  "initial_context": "예나랑은 처음 만난다. 소개팅을 하게 되었다. 예나는 나를 사실 좋아하고 있다. 이상형이라고 생각한다. 예나가 졸라서 소개팅을 하게 되었다.",
   "initial_background": "modern metallic glass cafe, table, coffee"
 }
