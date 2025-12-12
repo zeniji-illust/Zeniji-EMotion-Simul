@@ -1,0 +1,10 @@
+# 필수 패키지
+gradio>=4.0.0
+requests>=2.31.0
+websocket-client>=1.6.0
+
+# 선택적 패키지 (이미지 생성에 필요할 수 있음)
+# torch>=2.0.0
+# transformers>=4.35.0
+# bitsandbytes>=0.41.0
+# accelerate>=0.24.0
