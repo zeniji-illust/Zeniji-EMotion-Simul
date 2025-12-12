@@ -239,7 +239,28 @@ class GameApp:
             "initial_background": initial_background or "college library table, evening light"
         }
         
-        # 저장
+        # OpenRouter API 키 체크 및 우선 사용 설정
+        openrouter_api_key = self._load_openrouter_api_key()
+        if openrouter_api_key and openrouter_api_key.strip():
+            # OpenRouter API 키가 있으면 OpenRouter를 우선 사용
+            logger.info("OpenRouter API 키가 발견되었습니다. OpenRouter를 우선 사용합니다.")
+            if "llm_settings" not in config_data:
+                config_data["llm_settings"] = {}
+            config_data["llm_settings"]["provider"] = "openrouter"
+            # OpenRouter 모델이 설정되어 있지 않으면 기본값 사용
+            if "openrouter_model" not in config_data["llm_settings"]:
+                config_data["llm_settings"]["openrouter_model"] = "qwen/qwen-2.5-14b-instruct"
+        else:
+            # OpenRouter API 키가 없으면 Ollama 사용
+            logger.info("OpenRouter API 키가 없습니다. Ollama를 사용합니다.")
+            if "llm_settings" not in config_data:
+                config_data["llm_settings"] = {}
+            config_data["llm_settings"]["provider"] = "ollama"
+            # Ollama 모델이 설정되어 있지 않으면 기본값 사용
+            if "ollama_model" not in config_data["llm_settings"]:
+                config_data["llm_settings"]["ollama_model"] = "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest"
+        
+        # 저장 (LLM 설정 포함)
         if not self.save_config(config_data):
             return ("❌ 설정 저장 실패", gr.Tabs(selected=None), [], "", "", None, "", "", "")
         
@@ -250,13 +271,16 @@ class GameApp:
         
         # Brain 초기화 및 설정 적용
         try:
-            # LLM 설정 읽기
+            # LLM 설정 읽기 (저장된 설정에서)
             llm_settings = config_data.get("llm_settings", {})
             provider = llm_settings.get("provider", "ollama")
             ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
             openrouter_model = llm_settings.get("openrouter_model", "qwen/qwen-2.5-14b-instruct")
-            # API 키는 파일에서 불러오기
-            openrouter_api_key = self._load_openrouter_api_key() if provider == "openrouter" else ""
+            # API 키는 파일에서 불러오기 (이미 위에서 로드했지만 다시 확인)
+            if provider == "openrouter":
+                openrouter_api_key = self._load_openrouter_api_key()
+            else:
+                openrouter_api_key = ""
             
             if self.brain is None:
                 model_name = ollama_model if provider == "ollama" else openrouter_model

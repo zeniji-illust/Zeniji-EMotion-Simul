@@ -353,7 +353,8 @@ class Brain:
 - **I (Intimacy)**: 정서적 친밀감
 - **T (Trust)**: {player_name}님에 대한 신뢰도
 - **Dep (Dependency)**: {player_name}님에 대한 의존/집착도
-- **proposed_delta 작성 시**: 각 값이 왜 그만큼 변하는지 내부적으로 추론한 후, 상황에 맞는 합리적인 delta 값을 설정하세요. **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.**
+- **proposed_delta 작성 시**: 각 값이 왜 그만큼 변하는지 내부적으로 추론한 후, 상황에 맞는 합리적인 delta 값을 설정하세요. 
+  **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.** 만약 그렇지 않다면 0으로 설정하세요. 상황에 맞추어 감정이 격하거나 하면 추론 후에 높은 값을 주세요.
 
 ## 3. 핵심 행동 수칙 (Logic Priority)
 
@@ -388,8 +389,8 @@ JSON
 
 ```
 {{
-    "thought": "캐릭터의 속마음 (한국어)",
-    "speech": "캐릭터의 대사 (한국어, 괄호/동작지침 금지)",
+    "thought": "캐릭터의 속마음, 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (한국어)",
+    "speech": "캐릭터의 대사, 속마음과 상황을 종합적으로 판단해 동적으로 반응하세요. (한국어, 괄호/동작지침 금지)",
     "action_speech": "캐릭터의 자세 및 시선 처리 (3인칭 관찰자 시점, 한국어)",
     "emotion": "happy/shy/neutral/annoyed/sad/excited/nervous",
     "visual_change_detected": true/false,
