@@ -8,7 +8,7 @@ ZEMS is a Psychological Sculpting Simulator where you shape characters through s
 
 📥 설치 및 실행 단계 (Installation & Setup)
 
-- 프로젝트 다운로드: git clone https://github.com/zeniji-illust/emotion-simul
+- 프로젝트 다운로드: git clone https://github.com/zeniji-illust/Zeniji-EMotion-Simul
 
 - 의존성 설치: 폴더 내 install.bat 실행 (Python 3.11.0 최적화)
 
