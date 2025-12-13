@@ -1222,7 +1222,8 @@ class GameApp:
             gr.Markdown(
                 """
                 <div style="text-align: center; margin-top: 20px; padding: 10px; color: #666;">
-                    ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a>
+                    ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a><br>
+                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">커뮤니티</a>
                 </div>
                 """
             )
