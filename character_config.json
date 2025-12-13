@@ -19,19 +19,5 @@
     "Dep": 0.0
   },
   "initial_context": "챈붕이랑 설연은 같은 학교 동창이다. 챈붕이가 일하는 편의점에 설연이 우연히 들어왔다. 어 챈붕이가 여기서 일하고 있었구나. 그냥 오랜만에 봐서 반가운 설연.",
-  "initial_background": "convenient store",
-  "llm_settings": {
-    "provider": "ollama",
-    "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
-    "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
-  },
-  "comfyui_settings": {
-    "server_port": 8000,
-    "workflow_path": "workflows/comfyui_zit.json",
-    "model_name": "Zeniji_mix_ZiT_v1.safetensors",
-    "steps": 9,
-    "cfg": 1,
-    "sampler_name": "euler",
-    "scheduler": "simple"
-  }
+  "initial_background": "convenient store"
 }

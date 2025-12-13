@@ -29,6 +29,8 @@ models/
 .env
 .env.local
 apikey/
+env_config/
+characters/
 
 # OS
 .DS_Store

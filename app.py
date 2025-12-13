@@ -22,7 +22,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("App")
 
 # 설정 파일 경로
-CONFIG_FILE = Path("character_config.json")
+CONFIG_FILE = Path("character_config.json")  # 기본 설정 파일 (하위 호환성)
+CHARACTER_DIR = Path("characters")
+ENV_CONFIG_DIR = Path("env_config")
+ENV_CONFIG_FILE = ENV_CONFIG_DIR / "settings.json"
 API_KEY_DIR = Path("apikey")
 OPENROUTER_API_KEY_FILE = API_KEY_DIR / "openrouter_api_key.txt"
 
@@ -124,6 +127,49 @@ class GameApp:
             logger.error(f"Failed to save OpenRouter API key: {e}")
             return False
     
+    def load_env_config(self) -> Dict:
+        """환경설정 파일 로드 (LLM 및 ComfyUI 설정)"""
+        if ENV_CONFIG_FILE.exists():
+            try:
+                with open(ENV_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load env config: {e}")
+        return self._default_env_config()
+    
+    def _default_env_config(self) -> Dict:
+        """기본 환경설정 반환"""
+        return {
+            "llm_settings": {
+                "provider": "ollama",
+                "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
+                "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+            },
+            "comfyui_settings": {
+                "server_port": 8000,
+                "workflow_path": "workflows/comfyui_zit.json",
+                "model_name": "Zeniji_mix_ZiT_v1.safetensors",
+                "steps": 9,
+                "cfg": 1,
+                "sampler_name": "euler",
+                "scheduler": "simple"
+            }
+        }
+    
+    def save_env_config(self, env_config: Dict) -> bool:
+        """환경설정 파일 저장"""
+        try:
+            # env_config 디렉토리가 없으면 생성
+            ENV_CONFIG_DIR.mkdir(exist_ok=True)
+            
+            with open(ENV_CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(env_config, f, ensure_ascii=False, indent=2)
+            logger.info(f"Env config saved to {ENV_CONFIG_FILE}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save env config: {e}")
+            return False
+    
     def _default_config(self) -> Dict:
         """기본 설정 반환"""
         return {
@@ -165,7 +211,7 @@ class GameApp:
         }
     
     def save_config(self, config_data: Dict) -> bool:
-        """설정 파일 저장"""
+        """설정 파일 저장 (하위 호환성용)"""
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, ensure_ascii=False, indent=2)
@@ -174,6 +220,55 @@ class GameApp:
         except Exception as e:
             logger.error(f"Failed to save config: {e}")
             return False
+    
+    def get_character_files(self) -> list:
+        """character 폴더의 JSON 파일 목록 가져오기"""
+        try:
+            CHARACTER_DIR.mkdir(exist_ok=True)
+            files = sorted([f.stem for f in CHARACTER_DIR.glob("*.json")])
+            return files
+        except Exception as e:
+            logger.error(f"Failed to get character files: {e}")
+            return []
+    
+    def save_character_config(self, config_data: Dict, filename: str) -> bool:
+        """character 폴더에 설정 파일 저장"""
+        try:
+            CHARACTER_DIR.mkdir(exist_ok=True)
+            
+            # 파일명에 .json이 없으면 추가
+            if not filename.endswith('.json'):
+                filename = f"{filename}.json"
+            
+            file_path = CHARACTER_DIR / filename
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, ensure_ascii=False, indent=2)
+            logger.info(f"Character config saved to {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save character config: {e}")
+            return False
+    
+    def load_character_config(self, filename: str) -> Dict:
+        """character 폴더에서 설정 파일 로드"""
+        try:
+            # 파일명에 .json이 없으면 추가
+            if not filename.endswith('.json'):
+                filename = f"{filename}.json"
+            
+            file_path = CHARACTER_DIR / filename
+            
+            if not file_path.exists():
+                logger.warning(f"Character file not found: {file_path}")
+                return self._default_config()
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                return self._sanitize_config(config)
+        except Exception as e:
+            logger.error(f"Failed to load character config: {e}")
+            return self._default_config()
     
     def apply_preset(self, preset_name: str) -> Tuple[float, float, float, float, float, float, str, str]:
         """프리셋 적용 - 모든 수치가 확실히 숫자가 되도록 보장"""
@@ -248,30 +343,7 @@ class GameApp:
             "initial_background": initial_background or "college library table, evening light"
         }
         
-        # OpenRouter API 키 체크 및 우선 사용 설정
-        openrouter_api_key = self._load_openrouter_api_key()
-        if openrouter_api_key and openrouter_api_key.strip():
-            # OpenRouter API 키가 있으면 OpenRouter를 우선 사용
-            logger.info("OpenRouter API 키가 발견되었습니다. OpenRouter를 우선 사용합니다.")
-            if "llm_settings" not in config_data:
-                config_data["llm_settings"] = {}
-            config_data["llm_settings"]["provider"] = "openrouter"
-            # OpenRouter 모델이 설정되어 있지 않으면 기본값 사용
-            if "openrouter_model" not in config_data["llm_settings"]:
-                config_data["llm_settings"]["openrouter_model"] = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
-        else:
-            # OpenRouter API 키가 없으면 Ollama 사용
-            logger.info("OpenRouter API 키가 없습니다. Ollama를 사용합니다.")
-            if "llm_settings" not in config_data:
-                config_data["llm_settings"] = {}
-            config_data["llm_settings"]["provider"] = "ollama"
-            # Ollama 모델이 설정되어 있지 않으면 기본값 사용
-            if "ollama_model" not in config_data["llm_settings"]:
-                config_data["llm_settings"]["ollama_model"] = "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest"
-        
-        # 저장 (LLM 설정 포함)
-        if not self.save_config(config_data):
-            return ("❌ 설정 저장 실패", gr.Tabs(selected=None), [], "", "", None, "", "", "")
+        # 저장하지 않고 바로 시작 (파일 저장은 save 버튼으로 별도 처리)
         
         # 모델 로드
         status_msg, success = self.load_model()
@@ -280,16 +352,29 @@ class GameApp:
         
         # Brain 초기화 및 설정 적용
         try:
-            # LLM 설정 읽기 (저장된 설정에서)
-            llm_settings = config_data.get("llm_settings", {})
+            # LLM 설정 읽기 (환경설정에서)
+            env_config = self.load_env_config()
+            llm_settings = env_config.get("llm_settings", {})
+            
+            # 환경설정에서 provider 가져오기 (기본값: ollama)
             provider = llm_settings.get("provider", "ollama")
+            
+            # OpenRouter API 키는 파일에서 불러오기
+            openrouter_api_key = self._load_openrouter_api_key()
+            
+            # 설정된 provider에 따라 검증 및 폴백 처리
+            if provider == "openrouter":
+                if not openrouter_api_key or not openrouter_api_key.strip():
+                    logger.warning("환경설정에서 OpenRouter가 선택되었지만 API 키가 없습니다. Ollama로 폴백합니다.")
+                    provider = "ollama"
+                    llm_settings["provider"] = "ollama"
+                else:
+                    logger.info("환경설정에 따라 OpenRouter를 사용합니다.")
+            else:
+                logger.info("환경설정에 따라 Ollama를 사용합니다.")
+            
             ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
             openrouter_model = llm_settings.get("openrouter_model", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free")
-            # API 키는 파일에서 불러오기 (이미 위에서 로드했지만 다시 확인)
-            if provider == "openrouter":
-                openrouter_api_key = self._load_openrouter_api_key()
-            else:
-                openrouter_api_key = ""
             
             if self.brain is None:
                 model_name = ollama_model if provider == "ollama" else openrouter_model
@@ -331,7 +416,8 @@ class GameApp:
                     # ComfyClient 초기화 (아직 안 되어 있으면)
                     if self.comfy_client is None:
                         # ComfyUI 설정 로드
-                        comfyui_settings = config_data.get("comfyui_settings", {})
+                        env_config = self.load_env_config()
+                        comfyui_settings = env_config.get("comfyui_settings", {})
                         server_port = comfyui_settings.get("server_port", 8000)
                         workflow_path = comfyui_settings.get("workflow_path", "workflows/comfyui_zit.json")
                         model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
@@ -401,8 +487,8 @@ class GameApp:
         
         try:
             # 설정에서 LLM 설정 읽기
-            config_data = self.load_config()
-            llm_settings = config_data.get("llm_settings", {})
+            env_config = self.load_env_config()
+            llm_settings = env_config.get("llm_settings", {})
             provider = llm_settings.get("provider", "ollama")
             ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
             openrouter_model = llm_settings.get("openrouter_model", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free")
@@ -596,8 +682,8 @@ class GameApp:
                 # ComfyClient 초기화 (아직 안 되어 있으면)
                 if self.comfy_client is None:
                     # ComfyUI 설정 로드
-                    saved_config = self.load_config()
-                    comfyui_settings = saved_config.get("comfyui_settings", {})
+                    env_config = self.load_env_config()
+                    comfyui_settings = env_config.get("comfyui_settings", {})
                     server_port = comfyui_settings.get("server_port", 8000)
                     workflow_path = comfyui_settings.get("workflow_path", "workflows/comfyui_zit.json")
                     model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
@@ -677,6 +763,7 @@ class GameApp:
         """Gradio UI 생성"""
         # 설정 로드
         saved_config = self.load_config()
+        env_config = self.load_env_config()
         
         with gr.Blocks(title="Zeniji Emotion Simul") as demo:
             gr.Markdown("# 🎮 Zeniji Emotion Simul")
@@ -849,7 +936,143 @@ class GameApp:
                     # random_context_btn = gr.Button("🎲 랜덤 상황 생성", variant="secondary")
                     
                     setup_status = gr.Markdown("")
-                    start_btn = gr.Button("💾 저장 및 바로 시작", variant="primary", size="lg")
+                    
+                    # Character 파일 관리
+                    with gr.Row():
+                        with gr.Column(scale=2):
+                            character_file_dropdown = gr.Dropdown(
+                                label="캐릭터 파일",
+                                choices=self.get_character_files(),
+                                value=None,
+                                info="저장된 캐릭터 설정 파일 선택"
+                            )
+                        with gr.Column(scale=1):
+                            character_filename_input = gr.Textbox(
+                                label="저장할 파일명",
+                                placeholder="예: my_character",
+                                info="파일명만 입력 (확장자 자동 추가)"
+                            )
+                            overwrite_checkbox = gr.Checkbox(
+                                label="덮어쓰기 허용",
+                                value=False,
+                                info="같은 파일명이 있을 때 덮어쓰기 허용"
+                            )
+                    
+                    with gr.Row():
+                        load_btn = gr.Button("📂 불러오기", variant="secondary", size="lg")
+                        save_btn = gr.Button("💾 저장", variant="secondary", size="lg")
+                        start_btn = gr.Button("🚀 시작", variant="primary", size="lg")
+                    
+                    def load_character(selected_file):
+                        """캐릭터 파일 불러오기"""
+                        if not selected_file:
+                            return "⚠️ 파일을 선택해주세요.", *([gr.update()] * 12)
+                        
+                        try:
+                            config = self.load_character_config(selected_file)
+                            
+                            # UI 업데이트
+                            return (
+                                f"✅ {selected_file} 불러오기 완료!",
+                                config["player"].get("name", ""),
+                                config["player"].get("gender", "남성"),
+                                config["character"].get("name", "예나"),
+                                config["character"].get("age", 21),
+                                config["character"].get("gender", "여성"),
+                                config["character"].get("appearance", ""),
+                                config["character"].get("personality", ""),
+                                config["initial_stats"].get("P", 50.0),
+                                config["initial_stats"].get("A", 40.0),
+                                config["initial_stats"].get("D", 40.0),
+                                config["initial_stats"].get("I", 20.0),
+                                config["initial_stats"].get("T", 50.0),
+                                config["initial_stats"].get("Dep", 0.0),
+                                config.get("initial_context", ""),
+                                config.get("initial_background", "college library table, evening light")
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to load character: {e}")
+                            return f"❌ 불러오기 실패: {str(e)}", *([gr.update()] * 12)
+                    
+                    def save_character(filename, overwrite, player_name, player_gender, char_name, char_age, char_gender,
+                                     appearance, personality, p_val, a_val, d_val, i_val, t_val, dep_val,
+                                     initial_context, initial_background):
+                        """캐릭터 설정 저장"""
+                        if not filename or not filename.strip():
+                            return "⚠️ 파일명을 입력해주세요.", gr.Dropdown()
+                        
+                        try:
+                            # 파일명 정리
+                            clean_filename = filename.strip()
+                            if not clean_filename.endswith('.json'):
+                                clean_filename = f"{clean_filename}.json"
+                            
+                            # 파일이 이미 존재하는지 확인
+                            file_path = CHARACTER_DIR / clean_filename
+                            if file_path.exists() and not overwrite:
+                                return f"⚠️ 경고: '{clean_filename}' 파일이 이미 존재합니다. '덮어쓰기 허용'을 체크하거나 다른 파일명을 사용해주세요.", gr.Dropdown()
+                            
+                            # 설정 데이터 구성
+                            config_data = {
+                                "player": {
+                                    "name": player_name or "",
+                                    "gender": player_gender or "남성"
+                                },
+                                "character": {
+                                    "name": char_name or "예나",
+                                    "age": int(char_age) if char_age else 21,
+                                    "gender": char_gender or "여성",
+                                    "appearance": appearance or "",
+                                    "personality": personality or ""
+                                },
+                                "initial_stats": {
+                                    "P": float(p_val) if p_val is not None else 50.0,
+                                    "A": float(a_val) if a_val is not None else 40.0,
+                                    "D": float(d_val) if d_val is not None else 40.0,
+                                    "I": float(i_val) if i_val is not None else 20.0,
+                                    "T": float(t_val) if t_val is not None else 50.0,
+                                    "Dep": float(dep_val) if dep_val is not None else 0.0
+                                },
+                                "initial_context": initial_context or "",
+                                "initial_background": initial_background or "college library table, evening light"
+                            }
+                            
+                            if self.save_character_config(config_data, clean_filename):
+                                # 드롭다운 목록 새로고침
+                                updated_files = self.get_character_files()
+                                return f"✅ {clean_filename} 저장 완료!", gr.Dropdown(choices=updated_files, value=clean_filename.replace('.json', ''))
+                            else:
+                                return "❌ 저장 실패", gr.Dropdown()
+                        except Exception as e:
+                            logger.error(f"Failed to save character: {e}")
+                            return f"❌ 저장 실패: {str(e)}", gr.Dropdown()
+                    
+                    load_btn.click(
+                        load_character,
+                        inputs=[character_file_dropdown],
+                        outputs=[
+                            setup_status,
+                            player_name, player_gender,
+                            char_name, char_age, char_gender,
+                            appearance, personality,
+                            p_val, a_val, d_val, i_val, t_val, dep_val,
+                            initial_context, initial_background
+                        ]
+                    )
+                    
+                    save_btn.click(
+                        save_character,
+                        inputs=[
+                            character_filename_input,
+                            overwrite_checkbox,
+                            player_name, player_gender,
+                            char_name, char_age, char_gender,
+                            appearance, personality,
+                            p_val, a_val, d_val, i_val, t_val, dep_val,
+                            initial_context, initial_background
+                        ],
+                        outputs=[setup_status, character_file_dropdown]
+                    )
                 
                 # ========== 탭 2: 대화 ==========
                 with gr.Tab("💬 대화", id="chat_tab") as chat_tab:
@@ -931,7 +1154,7 @@ class GameApp:
                     gr.Markdown("## LLM 설정")
                     
                     # LLM 설정 로드
-                    llm_settings = saved_config.get("llm_settings", {})
+                    llm_settings = env_config.get("llm_settings", {})
                     provider = llm_settings.get("provider", "ollama")
                     ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
                     openrouter_model = llm_settings.get("openrouter_model", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free")
@@ -987,7 +1210,7 @@ class GameApp:
                     def save_llm_settings(provider_val, ollama_model_val, openrouter_key_val, openrouter_model_val):
                         """LLM 설정 저장"""
                         try:
-                            config_data = self.load_config()
+                            env_config = self.load_env_config()
                             
                             # OpenRouter API 키는 별도 파일에 저장
                             if provider_val == "openrouter" and openrouter_key_val:
@@ -995,19 +1218,19 @@ class GameApp:
                                     return "❌ OpenRouter API 키 저장 실패"
                             
                             # LLM 설정 업데이트 (API 키는 제외)
-                            config_data["llm_settings"] = {
+                            env_config["llm_settings"] = {
                                 "provider": provider_val,
                                 "ollama_model": ollama_model_val or "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
                                 "openrouter_model": openrouter_model_val or "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
                             }
                             
-                            # 설정 저장
-                            if self.save_config(config_data):
+                            # 환경설정 저장
+                            if self.save_env_config(env_config):
                                 # Brain 재초기화 (새 설정 적용)
                                 try:
                                     if self.brain is not None:
                                         # 기존 Brain의 memory_manager를 새 설정으로 재초기화
-                                        llm_settings = config_data["llm_settings"]
+                                        llm_settings = env_config["llm_settings"]
                                         # API 키는 파일에서 불러오기
                                         api_key = self._load_openrouter_api_key() if llm_settings["provider"] == "openrouter" else None
                                         self.brain.memory_manager = MemoryManager(
@@ -1022,7 +1245,7 @@ class GameApp:
                                         if result is None and llm_settings["provider"] == "openrouter":
                                             logger.warning("OpenRouter 연결 실패, Ollama로 폴백 시도...")
                                             # Ollama로 폴백
-                                            config_data["llm_settings"]["provider"] = "ollama"
+                                            env_config["llm_settings"]["provider"] = "ollama"
                                             self.brain.memory_manager = MemoryManager(
                                                 dev_mode=self.dev_mode,
                                                 provider="ollama",
@@ -1031,6 +1254,8 @@ class GameApp:
                                             result = self.brain.memory_manager.load_model()
                                             if result is None:
                                                 return "⚠️ OpenRouter 연결 실패, Ollama로 폴백 시도했으나 Ollama도 연결 실패했습니다."
+                                            # 폴백 설정 저장
+                                            self.save_env_config(env_config)
                                             return "⚠️ OpenRouter 연결 실패, Ollama로 폴백하여 설정 저장 완료."
                                         
                                         self.model_loaded = (result is not None)
@@ -1059,7 +1284,7 @@ class GameApp:
                     gr.Markdown("## ComfyUI 설정")
                     
                     # ComfyUI 설정 로드
-                    comfyui_settings = saved_config.get("comfyui_settings", {})
+                    comfyui_settings = env_config.get("comfyui_settings", {})
                     comfyui_port = comfyui_settings.get("server_port", 8000)
                     workflow_path = comfyui_settings.get("workflow_path", "workflows/comfyui_zit.json")
                     comfyui_model = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
@@ -1140,34 +1365,34 @@ class GameApp:
                     def save_comfyui_settings(port_val, workflow_val, model_val, steps_val, cfg_val, sampler_val, scheduler_val):
                         """ComfyUI 설정 저장"""
                         try:
-                            config_data = self.load_config()
+                            env_config = self.load_env_config()
                             
                             # ComfyUI 설정 업데이트
-                            if "comfyui_settings" not in config_data:
-                                config_data["comfyui_settings"] = {}
+                            if "comfyui_settings" not in env_config:
+                                env_config["comfyui_settings"] = {}
                             
                             workflow_path = f"workflows/{workflow_val}" if workflow_val else "workflows/comfyui_zit.json"
                             
-                            config_data["comfyui_settings"]["server_port"] = int(port_val) if port_val else 8000
-                            config_data["comfyui_settings"]["workflow_path"] = workflow_path
-                            config_data["comfyui_settings"]["model_name"] = model_val or "Zeniji_mix_ZiT_v1.safetensors"
-                            config_data["comfyui_settings"]["steps"] = int(steps_val) if steps_val else 9
-                            config_data["comfyui_settings"]["cfg"] = float(cfg_val) if cfg_val else 1.0
-                            config_data["comfyui_settings"]["sampler_name"] = sampler_val or "euler"
-                            config_data["comfyui_settings"]["scheduler"] = scheduler_val or "simple"
+                            env_config["comfyui_settings"]["server_port"] = int(port_val) if port_val else 8000
+                            env_config["comfyui_settings"]["workflow_path"] = workflow_path
+                            env_config["comfyui_settings"]["model_name"] = model_val or "Zeniji_mix_ZiT_v1.safetensors"
+                            env_config["comfyui_settings"]["steps"] = int(steps_val) if steps_val else 9
+                            env_config["comfyui_settings"]["cfg"] = float(cfg_val) if cfg_val else 1.0
+                            env_config["comfyui_settings"]["sampler_name"] = sampler_val or "euler"
+                            env_config["comfyui_settings"]["scheduler"] = scheduler_val or "simple"
                             
-                            # 설정 저장
-                            if self.save_config(config_data):
+                            # 환경설정 저장
+                            if self.save_env_config(env_config):
                                 # ComfyClient 재초기화 (새 설정 적용)
                                 try:
                                     if self.comfy_client is not None:
-                                        server_address = f"127.0.0.1:{config_data['comfyui_settings']['server_port']}"
-                                        workflow_path = config_data['comfyui_settings'].get('workflow_path', 'workflows/comfyui_zit.json')
-                                        model_name = config_data['comfyui_settings']['model_name']
-                                        steps = config_data['comfyui_settings'].get('steps', 9)
-                                        cfg = config_data['comfyui_settings'].get('cfg', 1.0)
-                                        sampler_name = config_data['comfyui_settings'].get('sampler_name', 'euler')
-                                        scheduler = config_data['comfyui_settings'].get('scheduler', 'simple')
+                                        server_address = f"127.0.0.1:{env_config['comfyui_settings']['server_port']}"
+                                        workflow_path = env_config['comfyui_settings'].get('workflow_path', 'workflows/comfyui_zit.json')
+                                        model_name = env_config['comfyui_settings']['model_name']
+                                        steps = env_config['comfyui_settings'].get('steps', 9)
+                                        cfg = env_config['comfyui_settings'].get('cfg', 1.0)
+                                        sampler_name = env_config['comfyui_settings'].get('sampler_name', 'euler')
+                                        scheduler = env_config['comfyui_settings'].get('scheduler', 'simple')
                                         self.comfy_client = ComfyClient(
                                             server_address=server_address,
                                             workflow_path=workflow_path,
