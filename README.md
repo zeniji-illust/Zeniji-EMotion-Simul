@@ -1,8 +1,12 @@
 🚀 ZEMS(Zeniji EMotion Simul): 심리 조각 시뮬레이터 안내
 
+.
+
 ** 현재는 한국어(Korean)만 지원합니다.**
 
 Currently, only Korean is supported.
+
+.
 
 ZEMS는 단순한 챗봇이 아닌, 6가지 감정 축을 통해 인물의 내면을 조각하는 **심리 조각 시뮬레이터(Psychological Sculpting Simulator)**입니다. 당신의 선택은 실시간 감정 변화를 일으키며, 인물은 당신이 남긴 모든 상처와 흔적을 기억합니다.
 
