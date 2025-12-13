@@ -1121,16 +1121,16 @@ class GameApp:
                                 step=0.1,
                                 info="프롬프트 준수도 (기본값: 1)"
                             )
-                            comfyui_sampler_input = gr.Dropdown(
+                            comfyui_sampler_input = gr.Textbox(
                                 label="Sampler (샘플러)",
                                 value=comfyui_sampler,
-                                choices=["euler", "euler_ancestral", "heun", "dpm_2", "dpm_2_ancestral", "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_sde", "dpmpp_2m", "dpmpp_2m_sde", "ddim", "uni_pc", "uni_pc_bh2"],
-                                info="이미지 생성 샘플러 (기본값: euler)"
+                                placeholder="예: euler",
+                                info="이미지 생성 샘플러 이름 (기본값: euler)"
                             )
-                            comfyui_scheduler_input = gr.Dropdown(
+                            comfyui_scheduler_input = gr.Textbox(
                                 label="Scheduler (스케줄러)",
                                 value=comfyui_scheduler,
-                                choices=["simple", "normal", "karras", "exponential", "sgm_uniform", "simple_karras", "normal_karras"],
+                                placeholder="예: simple",
                                 info="스케줄러 타입 (기본값: simple)"
                             )
                     
@@ -1217,6 +1217,15 @@ class GameApp:
                 inputs=[],
                 outputs=[submit_btn, user_input]
             )
+            
+            # Footer 추가
+            gr.Markdown(
+                """
+                <div style="text-align: center; margin-top: 20px; padding: 10px; color: #666;">
+                    ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a>
+                </div>
+                """
+            )
         
         return demo
 
@@ -1243,7 +1252,7 @@ def main():
     if args.dev_mode:
         print("🛠  Dev Mode ON")
     print("=" * 60 + "\n")
-    demo.launch(server_name="127.0.0.1", server_port=7860, share=False)
+    demo.launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=True)
 
 
 if __name__ == "__main__":
