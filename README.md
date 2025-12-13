@@ -84,6 +84,9 @@ With OpenRouter API, ZEMS runs smoothly on most PCs. We highly recommend using p
 
 🌐 커뮤니티: 아카라이브 Zeniji 채널 
 
+☕ 후원: buymeacoffee.com/zeniji
+
 "그녀의 마음을 조각하세요. 단, 모든 상처는 영원히 남습니다." 
 
 "Sculpt her mind. But every scar lasts forever."
+
