@@ -228,7 +228,7 @@ class GameApp:
         new_badge = response.get("new_badge")
         
         # 히스토리 업데이트
-        # Gradio Chatbot은 튜플 형식 [user_msg, assistant_msg]를 사용함
+        # Gradio 6.x Chatbot은 딕셔너리 형식 [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]을 사용함
         # Gradio에서 전달되는 history가 set이나 다른 타입일 수 있으므로 안전하게 처리
         try:
             if history is None:
@@ -247,12 +247,13 @@ class GameApp:
                 # 이미 리스트인 경우 복사본 생성
                 history = list(history)
             
-            # 튜플 형식으로 추가: [user_message, assistant_message]
-            history.append([user_input, speech])
+            # 딕셔너리 형식으로 추가
+            history.append({"role": "user", "content": user_input})
+            history.append({"role": "assistant", "content": speech})
         except Exception as e:
             logger.error(f"Failed to update history: {e}, history type: {type(history)}")
-            # 오류 발생 시 새 리스트로 시작 (튜플 형식)
-            history = [[user_input, speech]]
+            # 오류 발생 시 새 리스트로 시작 (딕셔너리 형식)
+            history = [{"role": "user", "content": user_input}, {"role": "assistant", "content": speech}]
         
         # 출력 텍스트
         output_lines = [

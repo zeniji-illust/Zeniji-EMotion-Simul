@@ -347,6 +347,58 @@ class UIBuilder:
                         outputs=[setup_status, character_file_dropdown]
                     )
                     
+                    def normalize_chatbot_history(history):
+                        """Chatbot 히스토리를 Gradio 6.x 딕셔너리 형식으로 정규화"""
+                        if history is None:
+                            return []
+                        
+                        normalized = []
+                        for item in history:
+                            if isinstance(item, list) and len(item) == 2:
+                                # 튜플 형식 [user_msg, assistant_msg]을 딕셔너리로 변환
+                                user_msg = item[0] if item[0] else ""
+                                assistant_msg = item[1] if item[1] else ""
+                                
+                                # 문자열로 변환 (리스트나 딕셔너리인 경우 처리)
+                                if isinstance(user_msg, list):
+                                    user_msg = ''.join([part.get('text', '') if isinstance(part, dict) else str(part) for part in user_msg])
+                                elif isinstance(user_msg, dict):
+                                    user_msg = user_msg.get('content', str(user_msg))
+                                else:
+                                    user_msg = str(user_msg) if user_msg else ""
+                                
+                                if isinstance(assistant_msg, list):
+                                    assistant_msg = ''.join([part.get('text', '') if isinstance(part, dict) else str(part) for part in assistant_msg])
+                                elif isinstance(assistant_msg, dict):
+                                    assistant_msg = assistant_msg.get('content', str(assistant_msg))
+                                else:
+                                    assistant_msg = str(assistant_msg) if assistant_msg else ""
+                                
+                                # 딕셔너리 형식으로 변환
+                                if user_msg:
+                                    normalized.append({"role": "user", "content": user_msg})
+                                if assistant_msg:
+                                    normalized.append({"role": "assistant", "content": assistant_msg})
+                            elif isinstance(item, dict):
+                                # 이미 딕셔너리 형식인 경우
+                                role = item.get("role", "")
+                                content = item.get("content", "")
+                                
+                                # content가 리스트나 다른 형식인 경우 문자열로 변환
+                                if isinstance(content, list):
+                                    content = ''.join([part.get('text', '') if isinstance(part, dict) else str(part) for part in content])
+                                else:
+                                    content = str(content) if content else ""
+                                
+                                # role과 content가 모두 있어야 함
+                                if role and content:
+                                    normalized.append({"role": role, "content": content})
+                            else:
+                                # 알 수 없는 형식은 건너뛰기
+                                logger.warning(f"Unknown history item format: {type(item)}, skipping")
+                        
+                        return normalized
+                    
                     def continue_chat(selected_scenario):
                         """시나리오를 불러와서 대화 이어가기"""
                         if not selected_scenario:
@@ -437,30 +489,8 @@ class UIBuilder:
                                         app_instance.brain.history.add(turn)
                                     logger.info(f"Context restored: {len(context.get('recent_turns', []))} recent turns")
                             
-                            # 히스토리를 chatbot 형식으로 변환 (튜플 형식 사용: [user_msg, assistant_msg])
-                            chatbot_history = []
-                            user_msg = None
-                            for item in history:
-                                if isinstance(item, dict):
-                                    role = item.get("role", "")
-                                    content = item.get("content", "")
-                                    if role == "user":
-                                        user_msg = content
-                                    elif role == "assistant":
-                                        if user_msg is not None:
-                                            # 튜플 형식으로 추가: [user_message, assistant_message]
-                                            chatbot_history.append([user_msg, content])
-                                            user_msg = None
-                                        else:
-                                            # user 메시지 없이 assistant만 있는 경우는 빈 메시지와 함께 추가
-                                            chatbot_history.append(["", content])
-                                elif isinstance(item, list) and len(item) == 2:
-                                    # 이미 튜플 형식인 경우
-                                    chatbot_history.append(item)
-                            
-                            # 마지막에 user_msg만 남아있는 경우 처리
-                            if user_msg is not None:
-                                chatbot_history.append([user_msg, ""])
+                            # 히스토리를 chatbot 형식으로 변환 (정규화 함수 사용)
+                            chatbot_history = normalize_chatbot_history(history)
                             
                             # 현재 상태로 차트 생성
                             if app_instance.brain is not None:
@@ -576,7 +606,8 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                     history = list(history)
                                 except (TypeError, ValueError):
                                     history = []
-                            return history, "", "", "", "", None, None, gr.HTML(value="", visible=False)  # 마지막은 event_notification
+                            normalized_history = normalize_chatbot_history(history)
+                            return normalized_history, "", "", "", "", None, None, gr.HTML(value="", visible=False)  # 마지막은 event_notification
                         
                         # 이전 차트를 먼저 반환 (로딩 중에도 차트가 보이도록)
                         # 초기 차트가 없으면 생성
@@ -585,7 +616,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             app_instance.current_chart = app_instance.create_radar_chart(stats, {})
                         previous_chart = app_instance.current_chart if app_instance.current_chart is not None else None
                         
-                        # history를 안전하게 리스트로 변환
+                        # history를 안전하게 리스트로 변환 및 정규화
                         if history is None:
                             history = []
                         elif isinstance(history, set):
@@ -596,14 +627,20 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             except (TypeError, ValueError):
                                 history = []
                         
-                        new_history, output, stats, image, choices, thought, action, chart, event_notification = app_instance.process_turn(message, history)
+                        # 히스토리 정규화
+                        normalized_history = normalize_chatbot_history(history)
+                        
+                        new_history, output, stats, image, choices, thought, action, chart, event_notification = app_instance.process_turn(message, normalized_history)
+                        
+                        # 반환 전에 히스토리 다시 정규화 (안전장치)
+                        normalized_new_history = normalize_chatbot_history(new_history)
                         
                         # image가 새로 생성됐으면 trigger에 넣고, 아니면 None
                         # 차트는 이전 차트를 먼저 반환하고, 새 차트는 나중에 업데이트
                         # 이벤트 알림이 있으면 표시, 없으면 숨김 (빈 문자열로 초기화)
                         event_visible = bool(event_notification and event_notification.strip())
                         event_html = event_notification if event_visible else ""
-                        return new_history, "", stats, thought, action, image, previous_chart if previous_chart else chart, gr.HTML(value=event_html, visible=event_visible)
+                        return normalized_new_history, "", stats, thought, action, image, previous_chart if previous_chart else chart, gr.HTML(value=event_html, visible=event_visible)
                     
                     def update_chart_async(history):
                         """백그라운드에서 차트 업데이트"""

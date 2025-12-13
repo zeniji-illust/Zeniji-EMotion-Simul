@@ -4,28 +4,24 @@ ECHO Zeniji Emotion Simul (Dev Mode) 시작 중...
 ECHO ========================================
 ECHO.
 
-REM Ollama 서버를 새 창에서 실행
-ECHO [1/2] Ollama 서버 시작 중...
-start "Zeniji Ollama Server" zeniji_ollama_serve.bat
+REM Python 앱 실행
+ECHO Python 앱 시작 중 (Dev Mode)...
+call .venv\Scripts\activate.bat
+python -m python.app --dev-mode
 
-REM 잠시 대기 (Ollama 서버가 시작될 시간 확보)
-timeout /t 3 /nobreak >nul
+REM 오류 코드 저장
+set EXIT_CODE=%ERRORLEVEL%
 
-REM Python 앱을 새 창에서 실행 (dev-mode 플래그 포함)
-ECHO [2/2] Python 앱 시작 중 (Dev Mode)...
-start "Zeniji Emotion Simul (Dev Mode)" cmd /k ".venv\Scripts\activate && python -m python.app --dev-mode"
-
+REM 프로그램 종료 후 창이 자동으로 닫히지 않도록 대기
 ECHO.
 ECHO ========================================
-ECHO 두 개의 창이 열렸습니다:
-ECHO - Ollama 서버 창
-ECHO - Zeniji Emotion Simul 창 (Dev Mode)
-ECHO.
-ECHO Dev Mode에서는 상세한 프롬프트와 응답 로그가 출력됩니다.
+if %EXIT_CODE% NEQ 0 (
+    ECHO 프로그램이 오류 코드 %EXIT_CODE%로 종료되었습니다.
+    ECHO 위의 오류 메시지를 확인하세요.
+) else (
+    ECHO 프로그램이 정상적으로 종료되었습니다.
+)
 ECHO ========================================
 ECHO.
-ECHO 이 창은 닫아도 됩니다.
-
-timeout /t 2 /nobreak >nul
-exit
-
+ECHO 아무 키나 누르면 창이 닫힙니다...
+pause >nul

@@ -29,12 +29,12 @@ PRESETS = {
         "personality": "밝고 활발하며, 오랜 친구라서 편하게 대화함. 때로는 장난스럽지만 진심이 담겨있음."
     },
     "혐관 라이벌": {
-        "P": 20.0, "A": 70.0, "D": 80.0, "I": 10.0, "T": 10.0, "Dep": 0.0,
+        "P": 20.0, "A": 70.0, "D": 70.0, "I": 10.0, "T": 10.0, "Dep": 0.0,
         "appearance": "korean beauty, sharp eyes, confident expression, competitive look, strong presence",
         "personality": "항상 경쟁하고 싶어하며, 당신을 라이벌로 인식. 도전적이고 자존심이 강함."
     },
     "피폐/집착": {
-        "P": 30.0, "A": 80.0, "D": 20.0, "I": 90.0, "T": 20.0, "Dep": 90.0,
+        "P": 30.0, "A": 70.0, "D": 20.0, "I": 70.0, "T": 20.0, "Dep": 70.0,
         "appearance": "korean beauty, tired eyes, intense gaze, unstable expression, obsessive look",
         "personality": "당신에게 강하게 집착하며, 떨어지면 불안해함. 감정 기복이 심하고 의존적."
     }
