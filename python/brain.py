@@ -57,7 +57,10 @@ class Brain:
         
         # 장기 기억 업데이트 (LLM이 제공한 경우)
         if long_memory_summary:
+            logger.info(f"장기 기억 업데이트됨 (이전 길이: {len(self.state.long_memory) if self.state.long_memory else 0}, 새 길이: {len(long_memory_summary)}): {long_memory_summary[:100]}...")
             self.state.long_memory = long_memory_summary
+        else:
+            logger.debug(f"장기 기억 업데이트 없음 (현재 long_memory 길이: {len(self.state.long_memory) if self.state.long_memory else 0})")
         
         # Ollama 원본 응답 로그 출력 (dev_mode일 때만)
         if self.dev_mode:
@@ -248,8 +251,8 @@ class Brain:
                 parsed_data = self._parse_json(response_text)
                 long_memory_summary = parsed_data.get("long_memory_summary", "").strip()
                 if long_memory_summary:
-                    # 200자 제한
-                    long_memory_summary = long_memory_summary[:200]
+                    # 500자 제한
+                    long_memory_summary = long_memory_summary[:500]
                     logger.info(f"장기 기억 업데이트: {long_memory_summary[:50]}...")
             except Exception as e:
                 logger.warning(f"장기 기억 추출 실패 (계속 진행): {e}")
@@ -278,23 +281,25 @@ class Brain:
         # 히스토리
         history_text = self.history.format_for_prompt()
         
-        # 장기 기억 섹션 (history_text 밑에 추가)
+        # 장기 기억 섹션 (long_memory가 있으면 표시, 첫 턴이어도 시나리오 복원 시 사용)
         long_memory_section = ""
         long_memory_instruction = ""
-        if self.state.total_turns > 0 and self.history.turns:
-            # 기존 장기 기억이 있으면 표시
-            if self.state.long_memory:
-                long_memory_section = f"""
+        logger.debug(f"Building prompt - total_turns: {self.state.total_turns}, long_memory exists: {bool(self.state.long_memory)}, long_memory length: {len(self.state.long_memory) if self.state.long_memory else 0}")
+        if self.state.long_memory:
+            # long_memory가 있으면 항상 표시 (시나리오 복원 시에도)
+            long_memory_section = f"""
 - **장기 기억** (중요: 이것은 장기 기억입니다. 중요하게 사용하세요.):
 {self.state.long_memory}
 """
+            logger.info(f"장기 기억을 프롬프트에 포함합니다 (total_turns: {self.state.total_turns}): {self.state.long_memory[:100]}...")
             
-            # 장기 기억 업데이트 지시 추가 (두 번째 턴부터)
-            existing_memory = self.state.long_memory if self.state.long_memory else "아직 장기 기억이 없습니다."
-            long_memory_instruction = f"""
+            # 장기 기억 업데이트 지시 추가 (total_turns > 0이고 history.turns가 있으면)
+            if self.state.total_turns > 0 and self.history.turns:
+                existing_memory = self.state.long_memory if self.state.long_memory else "아직 장기 기억이 없습니다."
+                long_memory_instruction = f"""
 ## 6. 장기 기억 업데이트 (중요)
 
-기존 장기 기억을 바탕으로, 중요한 내용만 200자 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.
+기존 장기 기억을 바탕으로, 중요한 내용만 500자 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.
 특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요. 변화가 없으면 기존 장기기억 유지합니다.
 **반드시 기존의 아주 중요한 기억은 그대로 유지하세요**
 기존 기억 + 새로운 기억을 요약하세요. 새로운 기억이 없으면 기존 기억을 그대로 유지합니다.
@@ -450,7 +455,6 @@ class Brain:
 - **기타 특수 명령**: {special_commands_text}
 - **대화 기록**: 
 {history_text}{long_memory_section}
-    
 
 ## 5. 출력 형식 (JSON Only)
 
@@ -459,8 +463,7 @@ JSON
 ```
 {{
     "thought": "캐릭터의 속마음, 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**한국어**)",
-    "speech": "캐릭터의 대사, 속마음과 상황을 종합적으로 판단해 동적으로 반응하세요. 
-    이전 대화 기록에서와 같은 말을 반복하지 마세요. 할 말이 없으면 "..."을 활용하세요. (**한국어**, 괄호/동작지침 금지)",
+    "speech": "캐릭터의 대사, 속마음과 상황을 종합적으로 판단해 동적으로 반응하세요. 이전 대화 기록에서와 같은 말을 반복하지 마세요. 할 말이 없으면 "..."을 활용하세요. (**한국어**, 괄호/동작지침 금지)",
     "action_speech": "캐릭터의 자세 및 시선 처리 (3인칭 관찰자 시점, **한국어**)",
     "emotion": "happy/shy/neutral/annoyed/sad/excited/nervous",
     "visual_change_detected": true/false,
@@ -470,7 +473,7 @@ JSON
     "proposed_delta": {{"P": 0, "A": 0, "D": 0, "I": 0, "T": 0, "Dep": 0}},
     "relationship_status_change": false,
     "new_status_name": "",
-    "long_memory_summary": "200자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지지)"
+    "long_memory_summary": "500자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지지)"
 }}
 ```
 {long_memory_instruction}
@@ -478,6 +481,12 @@ JSON
 위 입력을 바탕으로 캐릭터로서 반응하십시오.
 반드시 JSON으로 응답하십시오.
 """
+        
+        # 디버깅: long_memory_section이 실제로 포함되었는지 확인
+        if self.state.long_memory and not long_memory_section:
+            logger.error(f"⚠️ 경고: long_memory가 있지만 long_memory_section이 비어있습니다! (total_turns: {self.state.total_turns})")
+        elif long_memory_section:
+            logger.debug(f"✅ long_memory_section이 프롬프트에 포함됨 (길이: {len(long_memory_section)})")
         
         return prompt
     

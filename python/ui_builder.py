@@ -206,6 +206,7 @@ class UIBuilder:
                             )
                         with gr.Column(scale=1):
                             continue_chat_btn = gr.Button("📖 대화 이어가기", variant="secondary", size="lg")
+                            reload_scenario_btn = gr.Button("🔄 새로고침", variant="secondary", size="sm")
                     
                     # Character 파일 관리
                     with gr.Row():
@@ -232,6 +233,7 @@ class UIBuilder:
                         load_btn = gr.Button("📂 불러오기", variant="secondary", size="lg")
                         save_btn = gr.Button("💾 저장", variant="secondary", size="lg")
                         start_btn = gr.Button("🚀 시작", variant="primary", size="lg")
+                        reload_character_btn = gr.Button("🔄 새로고침", variant="secondary", size="sm")
                     
                     def load_character(selected_file):
                         """캐릭터 파일 불러오기"""
@@ -320,6 +322,31 @@ class UIBuilder:
                             logger.error(f"Failed to save character: {e}")
                             return f"❌ 저장 실패: {str(e)}", gr.Dropdown()
                     
+                    def reload_character_files():
+                        """캐릭터 파일 목록 새로고침"""
+                        updated_files = app_instance.get_character_files()
+                        return gr.Dropdown(choices=updated_files)
+                    
+                    def reload_scenario_files():
+                        """시나리오 파일 목록 새로고침"""
+                        updated_files = app_instance.get_scenario_files()
+                        return gr.Dropdown(choices=updated_files)
+                    
+                    def reload_workflow_files(current_value):
+                        """워크플로우 파일 목록 새로고침"""
+                        workflows_dir = config.PROJECT_ROOT / "workflows"
+                        workflow_files = []
+                        if workflows_dir.exists():
+                            workflow_files = sorted([f.name for f in workflows_dir.glob("*.json")])
+                        if not workflow_files:
+                            workflow_files = ["comfyui.json"]  # 기본값
+                        
+                        # 현재 선택된 값이 새 목록에 있으면 유지, 없으면 첫 번째 파일 선택
+                        if current_value and current_value in workflow_files:
+                            return gr.Dropdown(choices=workflow_files, value=current_value)
+                        else:
+                            return gr.Dropdown(choices=workflow_files, value=workflow_files[0] if workflow_files else None)
+                    
                     load_btn.click(
                         load_character,
                         inputs=[character_file_dropdown],
@@ -345,6 +372,16 @@ class UIBuilder:
                             initial_context, initial_background
                         ],
                         outputs=[setup_status, character_file_dropdown]
+                    )
+                    
+                    reload_character_btn.click(
+                        reload_character_files,
+                        outputs=[character_file_dropdown]
+                    )
+                    
+                    reload_scenario_btn.click(
+                        reload_scenario_files,
+                        outputs=[scenario_dropdown]
                     )
                     
                     def normalize_chatbot_history(history):
@@ -470,12 +507,15 @@ class UIBuilder:
                                 # 장기 기억 복원
                                 if "long_memory" in state_data:
                                     state.long_memory = state_data["long_memory"]
+                                    logger.info(f"장기 기억 복원됨 (길이: {len(state.long_memory)}): {state.long_memory[:100]}...")
+                                else:
+                                    logger.warning("시나리오에 장기 기억 데이터가 없습니다")
                                 
                                 # mood는 interpret_mood로 계산되는 값
                                 from logic_engine import interpret_mood
                                 calculated_mood = interpret_mood(state)
                                 
-                                logger.info(f"State restored: relationship={state.relationship_status}, mood={calculated_mood}, badges={list(state.badges)}, background={state.current_background}, turns={state.total_turns}")
+                                logger.info(f"State restored: relationship={state.relationship_status}, mood={calculated_mood}, badges={list(state.badges)}, background={state.current_background}, turns={state.total_turns}, long_memory exists: {bool(state.long_memory)}")
                                 
                                 # 이전 뱃지 목록도 복원 (알림용)
                                 if isinstance(state.badges, list):
@@ -1050,12 +1090,15 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 step=1,
                                 info="ComfyUI 서버가 실행 중인 포트 번호 (기본값: 8000)"
                             )
-                            comfyui_workflow_input = gr.Dropdown(
-                                label="워크플로우 파일",
-                                value=current_workflow,
-                                choices=workflow_files,
-                                info="workflows 폴더에서 사용할 워크플로우 파일 선택"
-                            )
+                            with gr.Row():
+                                comfyui_workflow_input = gr.Dropdown(
+                                    label="워크플로우 파일",
+                                    value=current_workflow,
+                                    choices=workflow_files,
+                                    info="workflows 폴더에서 사용할 워크플로우 파일 선택",
+                                    scale=4
+                                )
+                                reload_workflow_btn = gr.Button("🔄 새로고침", variant="secondary", size="sm", scale=1)
                             comfyui_model_input = gr.Textbox(
                                 label="ComfyUI 모델 이름",
                                 value=comfyui_model,
@@ -1173,6 +1216,12 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         save_comfyui_settings,
                         inputs=[comfyui_port_input, comfyui_workflow_input, comfyui_model_input, comfyui_vae_input, comfyui_clip_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input],
                         outputs=[comfyui_status]
+                    )
+                    
+                    reload_workflow_btn.click(
+                        reload_workflow_files,
+                        inputs=[comfyui_workflow_input],
+                        outputs=[comfyui_workflow_input]
                     )
             
             # 첫 탭의 버튼 클릭 시 대화 탭 컴포넌트 업데이트 (탭 밖에서 정의)
