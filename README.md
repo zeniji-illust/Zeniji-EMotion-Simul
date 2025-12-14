@@ -46,13 +46,13 @@ Use update.bat to pull the latest changes and check dependencies. Run dev_mode.b
 
 ZEMS는 텍스트를 넘어 실시간 이미지 생성을 통해 몰입감을 제공합니다. 다음 상황에서 이미지가 자동 생성됩니다:
 
-- 심리적 격변: 감정이 급격하게 변하는 '잭팟' 순간
+- 심리적 격변: 감정이 급격하게 변하는 '잭팟' 순간 (표정 변화)
 
-- 관계 전환: 연인, Master/Slave 등 관계의 정의가 바뀔 때
+- 관계 전환: 연인, Master/Slave 등 관계의 정의가 바뀔 때 (관계 바뀔 때의 변화)
 
-- 환경 변화: 배경이나 의상이 변경될 때
+- 환경 변화: 배경이나 의상이 변경될 때 (배경과 의상의 변화)
 
-- 주기적 생성: 대화 흐름 유지를 위해 매 5턴마다 생성
+- 주기적 생성: 대화 흐름 유지를 위해 매 5턴마다 생성 (비슷하지만 다른 이미지지)
 
 Images are generated in real-time during emotional surges, relationship shifts, changes in background/outfit, or every 5 turns to maintain immersion. .
 
@@ -64,9 +64,9 @@ Images are generated in real-time during emotional surges, relationship shifts, 
 
 - 트라우마 시스템: 파국 이후 재시작 시에도 과거의 상처가 남아 신뢰 회복을 방해합니다.
 
-- 12가지 아키타입: 통제광, 맹목적 숭배자 등 당신의 선택이 만든 극단적 결말을 확인하세요.
+- 12가지 뱃지: 통제광, 맹목적 숭배자 등 당신의 선택이 만든 극단적 결말을 확인하세요.
 
-Six emotional axes determine personality and tone. The Trauma system ensures past scars hinder trust even after a reset. Explore 12 extreme archetypes like The Warden or The Cultist. .
+Six emotional axes determine personality and tone. The Trauma system ensures past scars hinder trust even after a reset. Explore 12 extreme archetypes(badges) like The Warden or The Cultist. .
 
 .
 
@@ -81,6 +81,8 @@ OpenRouter 크레딧 결제 및 유료 모델 사용을 권장합니다. (토큰
 With OpenRouter API, ZEMS runs smoothly on most PCs. We highly recommend using paid models via OpenRouter credits; it's cost-effective due to low token consumption. For local LLM (Ollama), 16GB+ VRAM and 32GB+ RAM are recommended
 
 . 
+
+❤️ 홈페이지: zeniji.love
 
 🌐 커뮤니티: 아카라이브 Zeniji 채널 
 

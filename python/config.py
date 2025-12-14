@@ -4,9 +4,15 @@ Zeniji Emotion Simul - Configuration
 """
 
 from pathlib import Path
+import sys
 
-# 프로젝트 루트 디렉토리 찾기 (python/ 폴더의 상위)
-PROJECT_ROOT = Path(__file__).parent.parent
+# 프로젝트 루트 디렉토리 찾기 (PyInstaller 호환)
+if getattr(sys, 'frozen', False):
+    # PyInstaller로 빌드된 경우: exe 파일과 같은 디렉토리
+    PROJECT_ROOT = Path(sys.executable).parent
+else:
+    # 개발 모드: python/ 폴더의 상위
+    PROJECT_ROOT = Path(__file__).parent.parent
 
 # 이미지 생성 모드
 IMAGE_MODE_ENABLED = True
@@ -118,9 +124,10 @@ LLM_CONFIG = {
 }
 
 # ComfyUI 설정
+COMFYUI_WORKFLOW_PATH = PROJECT_ROOT / "workflows" / "comfyui.json"
 COMFYUI_CONFIG = {
     "server_address": "127.0.0.1:8000",
-    "workflow_path": str(PROJECT_ROOT / "workflows" / "comfyui_zit.json"),
+    "workflow_path": "workflows/comfyui.json",  # 상대 경로로 저장 (빌드된 실행 파일 호환성)
     "model_name": "Zeniji_mix_ZiT_v1.safetensors"  # 기본 모델 이름
 }
 

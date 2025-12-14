@@ -5,9 +5,9 @@ UI Builder - Gradio UI 생성
 import gradio as gr
 import logging
 from pathlib import Path
-from . import config
-from .comfy_client import ComfyClient
-from .memory_manager import MemoryManager
+import config
+from comfy_client import ComfyClient
+from memory_manager import MemoryManager
 
 logger = logging.getLogger("UIBuilder")
 
@@ -472,7 +472,7 @@ class UIBuilder:
                                     state.long_memory = state_data["long_memory"]
                                 
                                 # mood는 interpret_mood로 계산되는 값
-                                from .logic_engine import interpret_mood
+                                from logic_engine import interpret_mood
                                 calculated_mood = interpret_mood(state)
                                 
                                 logger.info(f"State restored: relationship={state.relationship_status}, mood={calculated_mood}, badges={list(state.badges)}, background={state.current_background}, turns={state.total_turns}")
@@ -491,7 +491,7 @@ class UIBuilder:
                                 if "recent_turns" in context and hasattr(app_instance.brain, 'history'):
                                     # DialogueHistory에 턴 추가
                                     for turn_data in context["recent_turns"]:
-                                        from .state_manager import DialogueTurn
+                                        from state_manager import DialogueTurn
                                         turn = DialogueTurn(
                                             player_input=turn_data.get("player_input", ""),
                                             character_response=turn_data.get("character_response", ""),
@@ -521,7 +521,7 @@ class UIBuilder:
                                 stats = state.get_stats_dict()
                                 
                                 # mood는 interpret_mood로 계산되는 값
-                                from .logic_engine import interpret_mood
+                                from logic_engine import interpret_mood
                                 calculated_mood = interpret_mood(state)
                                 
                                 stats_text = f"""
@@ -724,7 +724,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 state = app_instance.brain.state
                                 
                                 # mood는 interpret_mood 함수로 계산되는 값
-                                from .logic_engine import interpret_mood
+                                from logic_engine import interpret_mood
                                 calculated_mood = interpret_mood(state)
                                 
                                 scenario_data["state"] = {
@@ -878,6 +878,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         inputs=[],
                         outputs=[submit_btn, user_input]
                     )
+                    
                 
                 # ========== 탭 3: 환경설정 ==========
                 with gr.Tab("⚙️ 환경설정", id="settings_tab"):
@@ -1016,8 +1017,10 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     # ComfyUI 설정 로드
                     comfyui_settings = env_config.get("comfyui_settings", {})
                     comfyui_port = comfyui_settings.get("server_port", 8000)
-                    workflow_path = comfyui_settings.get("workflow_path", "workflows/comfyui_zit.json")
+                    workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
                     comfyui_model = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
+                    comfyui_vae = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
+                    comfyui_clip = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
                     comfyui_steps = comfyui_settings.get("steps", 9)
                     comfyui_cfg = comfyui_settings.get("cfg", 1)
                     comfyui_sampler = comfyui_settings.get("sampler_name", "euler")
@@ -1030,7 +1033,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         workflow_files = sorted([f.name for f in workflows_dir.glob("*.json")])
                     
                     if not workflow_files:
-                        workflow_files = ["comfyui_zit.json"]  # 기본값
+                        workflow_files = ["comfyui.json"]  # 기본값
                     
                     # 현재 선택된 워크플로우 파일명 추출
                     current_workflow = Path(workflow_path).name if workflow_path else workflow_files[0]
@@ -1058,6 +1061,18 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 value=comfyui_model,
                                 placeholder="예: Zeniji_mix_ZiT_v1.safetensors",
                                 info="ComfyUI에서 사용할 모델 파일 이름 (확장자 포함)"
+                            )
+                            comfyui_vae_input = gr.Textbox(
+                                label="VAE 이름",
+                                value=comfyui_vae,
+                                placeholder="예: zImage_vae.safetensors",
+                                info="ComfyUI에서 사용할 VAE 파일 이름 (확장자 포함)"
+                            )
+                            comfyui_clip_input = gr.Textbox(
+                                label="CLIP 이름",
+                                value=comfyui_clip,
+                                placeholder="예: zImage_textEncoder.safetensors",
+                                info="ComfyUI에서 사용할 CLIP 파일 이름 (확장자 포함)"
                             )
                         with gr.Column():
                             comfyui_steps_input = gr.Number(
@@ -1092,7 +1107,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     comfyui_status = gr.Markdown("")
                     save_comfyui_btn = gr.Button("💾 ComfyUI 설정 저장", variant="primary")
                     
-                    def save_comfyui_settings(port_val, workflow_val, model_val, steps_val, cfg_val, sampler_val, scheduler_val):
+                    def save_comfyui_settings(port_val, workflow_val, model_val, vae_val, clip_val, steps_val, cfg_val, sampler_val, scheduler_val):
                         """ComfyUI 설정 저장"""
                         try:
                             env_config = app_instance.load_env_config()
@@ -1102,13 +1117,17 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 env_config["comfyui_settings"] = {}
                             
                             if workflow_val:
-                                workflow_path = str(config.PROJECT_ROOT / "workflows" / workflow_val)
+                                # 상대 경로로 저장 (빌드된 실행 파일에서도 올바르게 작동하도록)
+                                workflow_path = f"workflows/{workflow_val}"
                             else:
-                                workflow_path = str(config.PROJECT_ROOT / "workflows" / "comfyui_zit.json")
+                                # 기본값도 상대 경로로 저장
+                                workflow_path = "workflows/comfyui.json"
                             
                             env_config["comfyui_settings"]["server_port"] = int(port_val) if port_val else 8000
                             env_config["comfyui_settings"]["workflow_path"] = workflow_path
                             env_config["comfyui_settings"]["model_name"] = model_val or "Zeniji_mix_ZiT_v1.safetensors"
+                            env_config["comfyui_settings"]["vae_name"] = vae_val or "zImage_vae.safetensors"
+                            env_config["comfyui_settings"]["clip_name"] = clip_val or "zImage_textEncoder.safetensors"
                             env_config["comfyui_settings"]["steps"] = int(steps_val) if steps_val else 9
                             env_config["comfyui_settings"]["cfg"] = float(cfg_val) if cfg_val else 1.0
                             env_config["comfyui_settings"]["sampler_name"] = sampler_val or "euler"
@@ -1120,8 +1139,10 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 try:
                                     if app_instance.comfy_client is not None:
                                         server_address = f"127.0.0.1:{env_config['comfyui_settings']['server_port']}"
-                                        workflow_path = env_config['comfyui_settings'].get('workflow_path', str(config.PROJECT_ROOT / "workflows" / "comfyui_zit.json"))
+                                        workflow_path = env_config['comfyui_settings'].get('workflow_path', str(config.COMFYUI_WORKFLOW_PATH))
                                         model_name = env_config['comfyui_settings']['model_name']
+                                        vae_name = env_config['comfyui_settings'].get('vae_name', 'zImage_vae.safetensors')
+                                        clip_name = env_config['comfyui_settings'].get('clip_name', 'zImage_textEncoder.safetensors')
                                         steps = env_config['comfyui_settings'].get('steps', 9)
                                         cfg = env_config['comfyui_settings'].get('cfg', 1.0)
                                         sampler_name = env_config['comfyui_settings'].get('sampler_name', 'euler')
@@ -1133,9 +1154,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                             steps=steps,
                                             cfg=cfg,
                                             sampler_name=sampler_name,
-                                            scheduler=scheduler
+                                            scheduler=scheduler,
+                                            vae_name=vae_name,
+                                            clip_name=clip_name
                                         )
-                                        logger.info(f"ComfyClient 재초기화 완료: {server_address}, workflow: {workflow_path}, model: {model_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
+                                        logger.info(f"ComfyClient 재초기화 완료: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
                                     return "✅ ComfyUI 설정 저장 완료! (다음 이미지 생성 시 적용됩니다)"
                                 except Exception as e:
                                     logger.error(f"Failed to reinitialize ComfyClient: {e}")
@@ -1148,7 +1171,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                     save_comfyui_btn.click(
                         save_comfyui_settings,
-                        inputs=[comfyui_port_input, comfyui_workflow_input, comfyui_model_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input],
+                        inputs=[comfyui_port_input, comfyui_workflow_input, comfyui_model_input, comfyui_vae_input, comfyui_clip_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input],
                         outputs=[comfyui_status]
                     )
             
@@ -1170,6 +1193,14 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                 ]
             )
             
+            # tabs 컴포넌트의 change 이벤트 연결 (탭 전환 시 UI 활성화)
+            # 탭이 변경될 때마다 UI 상태 확인
+            tabs.change(
+                enable_chat_ui,
+                inputs=[],
+                outputs=[submit_btn, user_input]
+            )
+            
             # 설정 로드 시 UI 업데이트
             demo.load(
                 enable_chat_ui,
@@ -1182,7 +1213,8 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                 """
                 <div style="text-align: center; margin-top: 20px; padding: 10px; color: #666;">
                     ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a><br>
-                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">커뮤니티</a>
+                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">커뮤니티</a><br>
+                    ☕ <a href="https://buymeacoffee.com/zeniji" target="_blank" style="color: #666; text-decoration: none;">Buy Me a Coffee</a>
                 </div>
                 """
             )

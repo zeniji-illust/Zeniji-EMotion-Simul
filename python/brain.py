@@ -7,15 +7,15 @@ import json
 import re
 import logging
 from typing import Dict, Optional, Any, Tuple
-from .state_manager import CharacterState, DialogueHistory, DialogueTurn
-from . import config
-from .logic_engine import (
+from state_manager import CharacterState, DialogueHistory, DialogueTurn
+import config
+from logic_engine import (
     interpret_mood, check_badge_conditions, check_status_transition,
     apply_gacha_to_delta, get_trauma_instruction,
     get_intimacy_level, get_trust_level, get_dependency_level,
     apply_trauma_on_breakup
 )
-from .memory_manager import MemoryManager
+from memory_manager import MemoryManager
 
 logger = logging.getLogger("Brain")
 
@@ -294,8 +294,10 @@ class Brain:
             long_memory_instruction = f"""
 ## 6. 장기 기억 업데이트 (중요)
 
-위의 대화 기록과 기존 장기 기억을 바탕으로, 중요한 내용만 200자 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.
-특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요.
+기존 장기 기억을 바탕으로, 중요한 내용만 200자 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.
+특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요. 변화가 없으면 기존 장기기억 유지합니다.
+**반드시 기존의 아주 중요한 기억은 그대로 유지하세요**
+기존 기억 + 새로운 기억을 요약하세요. 새로운 기억이 없으면 기존 기억을 그대로 유지합니다.
 
 기존 장기 기억: {existing_memory}
 
@@ -468,7 +470,7 @@ JSON
     "proposed_delta": {{"P": 0, "A": 0, "D": 0, "I": 0, "T": 0, "Dep": 0}},
     "relationship_status_change": false,
     "new_status_name": "",
-    "long_memory_summary": "200자 이하로 지금까지의 중요한 기억을 요약 (선택적 필드, 중요한 변화가 있을 때만 포함)"
+    "long_memory_summary": "200자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지지)"
 }}
 ```
 {long_memory_instruction}

@@ -32,6 +32,8 @@ apikey/
 env_config/
 characters/
 scenarios/
+build.bat
+package.bat
 
 # OS
 .DS_Store

@@ -2,17 +2,30 @@
 
 
 added_files = [
-    ('env_config', 'env_config'),
-    ('workflows', 'workflows'),
-    ('character_config.json', '.')
+    ('python', 'python'),
+    ('.venv/Lib/site-packages/gradio', 'gradio'),
+    ('.venv/Lib/site-packages/safehttpx', 'safehttpx'),
+    ('.venv/Lib/site-packages/groovy', 'groovy')
 ]
 
 a = Analysis(
     ['python\\app.py'],
-    pathex=[],
+    pathex=['python'],
     binaries=[],
     datas=added_files,
-    hiddenimports=[],
+    hiddenimports=[
+        'brain',
+        'state_manager',
+        'comfy_client',
+        'memory_manager',
+        'config',
+        'encryption',
+        'config_manager',
+        'ui_components',
+        'game_initializer',
+        'ui_builder',
+        'logic_engine',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,7 +48,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

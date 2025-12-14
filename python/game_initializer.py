@@ -7,9 +7,9 @@ import logging
 from typing import Tuple, Optional, Any
 from PIL import Image
 import io
-from . import config
-from .comfy_client import ComfyClient
-from .brain import Brain
+import config
+from comfy_client import ComfyClient
+from brain import Brain
 
 logger = logging.getLogger("GameInitializer")
 
@@ -157,8 +157,10 @@ class GameInitializer:
                         env_config = app_instance.load_env_config()
                         comfyui_settings = env_config.get("comfyui_settings", {})
                         server_port = comfyui_settings.get("server_port", 8000)
-                        workflow_path = comfyui_settings.get("workflow_path", str(config.PROJECT_ROOT / "workflows" / "comfyui_zit.json"))
+                        workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
                         model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
+                        vae_name = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
+                        clip_name = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
                         steps = comfyui_settings.get("steps", 9)
                         cfg = comfyui_settings.get("cfg", 1.0)
                         sampler_name = comfyui_settings.get("sampler_name", "euler")
@@ -171,9 +173,11 @@ class GameInitializer:
                             steps=steps,
                             cfg=cfg,
                             sampler_name=sampler_name,
-                            scheduler=scheduler
+                            scheduler=scheduler,
+                            vae_name=vae_name,
+                            clip_name=clip_name
                         )
-                        logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
+                        logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
                     
                     # appearance와 background를 조합해서 이미지 생성
                     appearance = config_data["character"].get("appearance", "")

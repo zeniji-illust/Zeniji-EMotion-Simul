@@ -5,8 +5,8 @@ Zeniji Emotion Simul - Logic Engine
 
 import random
 from typing import Dict, Tuple, Optional
-from .state_manager import CharacterState
-from . import config
+from state_manager import CharacterState
+import config
 
 
 def roll_gacha_v3() -> Tuple[str, float]:

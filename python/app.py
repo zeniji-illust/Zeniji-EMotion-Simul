@@ -7,21 +7,38 @@ import gradio as gr
 import logging
 import argparse
 import json
+import sys
+import socket
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
-from .brain import Brain
-from .state_manager import CharacterState
-from .comfy_client import ComfyClient
-from .memory_manager import MemoryManager
+
+# PyInstaller 호환성을 위한 경로 설정
+if getattr(sys, 'frozen', False):
+    # PyInstaller로 빌드된 경우
+    base_path = Path(sys.executable).parent
+    python_path = base_path / 'python'
+    if python_path.exists():
+        sys.path.insert(0, str(python_path))
+else:
+    # 개발 모드
+    base_path = Path(__file__).parent.parent
+    python_path = Path(__file__).parent
+    if str(python_path) not in sys.path:
+        sys.path.insert(0, str(python_path))
+
+from brain import Brain
+from state_manager import CharacterState
+from comfy_client import ComfyClient
+from memory_manager import MemoryManager
 from PIL import Image
 import io
-from . import config
+import config
 import plotly.graph_objects as go
-from .encryption import EncryptionManager
-from .config_manager import ConfigManager
-from .ui_components import UIComponents
-from .game_initializer import GameInitializer
-from .ui_builder import UIBuilder
+from encryption import EncryptionManager
+from config_manager import ConfigManager
+from ui_components import UIComponents
+from game_initializer import GameInitializer
+from ui_builder import UIBuilder
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("App")
@@ -438,8 +455,10 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                     env_config = self.load_env_config()
                     comfyui_settings = env_config.get("comfyui_settings", {})
                     server_port = comfyui_settings.get("server_port", 8000)
-                    workflow_path = comfyui_settings.get("workflow_path", str(config.PROJECT_ROOT / "workflows" / "comfyui_zit.json"))
+                    workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
                     model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
+                    vae_name = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
+                    clip_name = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
                     steps = comfyui_settings.get("steps", 9)
                     cfg = comfyui_settings.get("cfg", 1.0)
                     sampler_name = comfyui_settings.get("sampler_name", "euler")
@@ -452,9 +471,11 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                         steps=steps,
                         cfg=cfg,
                         sampler_name=sampler_name,
-                        scheduler=scheduler
+                        scheduler=scheduler,
+                        vae_name=vae_name,
+                        clip_name=clip_name
                     )
-                    logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
+                    logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
                 
                 # 설정에서 appearance와 나이 가져오기
                 saved_config = self.load_config()
@@ -573,20 +594,106 @@ def parse_args():
 
 def main():
     """메인 실행"""
+    # PyInstaller 환경에서 uvicorn 로깅 문제 해결
+    if getattr(sys, 'frozen', False):
+        import os
+        import io
+        
+        # 안전한 stdout/stderr 래퍼 클래스
+        class SafeStream:
+            def __init__(self, original_stream, name='stdout'):
+                self._original = original_stream
+                self._name = name
+                self._buffer = io.BytesIO() if original_stream is None else None
+                self.encoding = 'utf-8'
+            
+            def write(self, s):
+                if self._original is not None:
+                    try:
+                        return self._original.write(s)
+                    except (AttributeError, OSError):
+                        pass
+                if self._buffer is not None:
+                    if isinstance(s, bytes):
+                        self._buffer.write(s)
+                    else:
+                        self._buffer.write(s.encode(self.encoding))
+                    return len(s)
+                return 0
+            
+            def flush(self):
+                if self._original is not None:
+                    try:
+                        self._original.flush()
+                    except (AttributeError, OSError):
+                        pass
+            
+            def isatty(self):
+                return False
+            
+            def fileno(self):
+                return 1 if self._name == 'stdout' else 2
+            
+            def __getattr__(self, name):
+                # 다른 속성은 원본 스트림에서 가져오기 시도
+                if self._original is not None:
+                    try:
+                        return getattr(self._original, name)
+                    except AttributeError:
+                        pass
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        
+        # stdout/stderr 안전하게 설정
+        if sys.stdout is None or (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty is None):
+            sys.stdout = SafeStream(sys.stdout, 'stdout')
+        elif not hasattr(sys.stdout, 'isatty'):
+            original_stdout = sys.stdout
+            sys.stdout = SafeStream(original_stdout, 'stdout')
+        
+        if sys.stderr is None or (hasattr(sys.stderr, 'isatty') and sys.stderr.isatty is None):
+            sys.stderr = SafeStream(sys.stderr, 'stderr')
+        elif not hasattr(sys.stderr, 'isatty'):
+            original_stderr = sys.stderr
+            sys.stderr = SafeStream(original_stderr, 'stderr')
+        
+        # uvicorn 로깅 문제 해결을 위한 환경 변수 설정
+        os.environ['UVICORN_LOG_LEVEL'] = 'warning'
+    
     args = parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level.upper(), logging.INFO))
 
     app = GameApp(dev_mode=args.dev_mode)
     demo = app.create_ui()
+    
+    # 사용 가능한 포트 찾기
+    def find_free_port(start_port=7860, max_attempts=10):
+        """사용 가능한 포트 찾기"""
+        for i in range(max_attempts):
+            port = start_port + i
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('127.0.0.1', port))
+                    return port
+            except OSError:
+                continue
+        # 모든 포트가 사용 중이면 None 반환 (Gradio가 자동으로 찾도록)
+        return None
+    
+    server_port = find_free_port(7860)
+    
     print("\n" + "=" * 60)
     print("🚀 Gradio 서버 시작 중...")
     print("=" * 60)
-    print(f"📍 로컬 접속: http://localhost:7860")
-    print(f"📍 네트워크 접속: http://127.0.0.1:7860")
+    if server_port:
+        print(f"📍 로컬 접속: http://localhost:{server_port}")
+        print(f"📍 네트워크 접속: http://127.0.0.1:{server_port}")
+    else:
+        print("📍 포트를 자동으로 찾는 중...")
     if args.dev_mode:
         print("🛠  Dev Mode ON")
     print("=" * 60 + "\n")
-    demo.launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=True)
+    
+    demo.launch(server_name="127.0.0.1", server_port=server_port, share=False, inbrowser=True, show_error=False)
 
 
 if __name__ == "__main__":

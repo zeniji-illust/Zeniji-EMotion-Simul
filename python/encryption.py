@@ -8,7 +8,7 @@ import base64
 import logging
 from pathlib import Path
 from cryptography.fernet import Fernet
-from . import config
+import config
 
 logger = logging.getLogger("Encryption")
 

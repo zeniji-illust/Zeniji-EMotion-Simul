@@ -8,7 +8,7 @@
       "scheduler": "simple",
       "denoise": 1,
       "model": [
-        "31",
+        "16",
         0
       ],
       "positive": [
@@ -73,7 +73,7 @@
   },
   "9": {
     "inputs": {
-      "filename_prefix": "25-12-13",
+      "filename_prefix": "25-12-14",
       "images": [
         "8",
         0
@@ -123,32 +123,6 @@
     "class_type": "CLIPLoader",
     "_meta": {
       "title": "CLIP 로드"
-    }
-  },
-  "31": {
-    "inputs": {
-      "PowerLoraLoaderHeaderWidget": {
-        "type": "PowerLoraLoaderHeaderWidget"
-      },
-      "lora_1": {
-        "on": false,
-        "lora": "ZiT_K_beauty_I.safetensors",
-        "strength": 0.6
-      },
-      "lora_2": {
-        "on": false,
-        "lora": "ZiT_K_beauty_P.safetensors",
-        "strength": 0.5
-      },
-      "➕ Add Lora": "",
-      "model": [
-        "16",
-        0
-      ]
-    },
-    "class_type": "Power Lora Loader (rgthree)",
-    "_meta": {
-      "title": "Power Lora Loader (rgthree)"
     }
   }
 }

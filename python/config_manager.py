@@ -6,7 +6,7 @@ Zeniji Emotion Simul - Config Manager
 import json
 import logging
 from typing import Dict
-from . import config
+import config
 
 logger = logging.getLogger("ConfigManager")
 
@@ -88,8 +88,10 @@ class ConfigManager:
             },
             "comfyui_settings": {
                 "server_port": 8000,
-                "workflow_path": "workflows/comfyui_zit.json",
+                "workflow_path": config.COMFYUI_CONFIG["workflow_path"],
                 "model_name": "Zeniji_mix_ZiT_v1.safetensors",
+                "vae_name": "zImage_vae.safetensors",
+                "clip_name": "zImage_textEncoder.safetensors",
                 "steps": 9,
                 "cfg": 1,
                 "sampler_name": "euler",
@@ -128,8 +130,10 @@ class ConfigManager:
             },
             "comfyui_settings": {
                 "server_port": 8000,
-                "workflow_path": "workflows/comfyui_zit.json",
+                "workflow_path": config.COMFYUI_CONFIG["workflow_path"],
                 "model_name": "Zeniji_mix_ZiT_v1.safetensors",
+                "vae_name": "zImage_vae.safetensors",
+                "clip_name": "zImage_textEncoder.safetensors",
                 "steps": 9,
                 "cfg": 1,
                 "sampler_name": "euler",
