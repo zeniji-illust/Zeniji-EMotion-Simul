@@ -10,6 +10,7 @@ import io
 import config
 from comfy_client import ComfyClient
 from brain import Brain
+from i18n import get_i18n
 
 logger = logging.getLogger("GameInitializer")
 
@@ -52,16 +53,22 @@ class GameInitializer:
         if exceeded:
             return empty_result
         
+        # 언어 설정 가져오기
+        env_config = app_instance.load_env_config()
+        language = env_config.get("language", "en")
+        i18n = get_i18n()
+        i18n.set_language(language)
+        
         # 설정 데이터 구성
         config_data = {
             "player": {
                 "name": player_name or "",
-                "gender": player_gender or "남성"
+                "gender": player_gender or i18n.get_default("player_gender")
             },
             "character": {
-                "name": char_name or "예나",
+                "name": char_name or i18n.get_default("character_name"),
                 "age": int(char_age) if char_age else 21,
-                "gender": char_gender or "여성",
+                "gender": char_gender or i18n.get_default("character_gender"),
                 "appearance": appearance or "",
                 "personality": personality or ""
             },
@@ -74,7 +81,7 @@ class GameInitializer:
                 "Dep": float(dep_val)
             },
             "initial_context": initial_context or "",
-            "initial_background": initial_background or "college library table, evening light"
+            "initial_background": initial_background or i18n.get_default("initial_background")
         }
         
         # 저장하지 않고 바로 시작 (파일 저장은 save 버튼으로 별도 처리)
@@ -116,7 +123,8 @@ class GameInitializer:
                     dev_mode=app_instance.dev_mode,
                     provider=provider,
                     model_name=model_name,
-                    api_key=api_key
+                    api_key=api_key,
+                    language=language
                 )
             else:
                 # Brain이 이미 존재하면 새 게임을 위해 상태 초기화
@@ -159,7 +167,9 @@ class GameInitializer:
                 app_instance.previous_relationship = app_instance.brain.state.relationship_status
                 logger.info(f"Initial relationship status set: {app_instance.previous_relationship}")
             
-            history, output_text, stats_text, image, choices_text, thought_text, action_text, radar_chart, _ = app_instance.process_turn("대화 시작", [])
+            # 첫 대화 입력 텍스트 (언어별)
+            first_input = i18n.get_text("msg_first_dialogue_input", category="ui") if i18n.get_text("msg_first_dialogue_input", category="ui") != "msg_first_dialogue_input" else ("Start conversation" if language == "en" else "대화 시작")
+            history, output_text, stats_text, image, choices_text, thought_text, action_text, radar_chart, _ = app_instance.process_turn(first_input, [])
             
             # 첫 화면 이미지 생성 (appearance + background)
             initial_image = None

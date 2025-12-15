@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Dict
 import config
+from i18n import get_i18n
 
 logger = logging.getLogger("ConfigManager")
 
@@ -58,18 +59,24 @@ class ConfigManager:
         return result
     
     def _default_config(self) -> Dict:
-        """기본 설정 반환"""
+        """기본 설정 반환 (언어에 따라 다름)"""
+        # 언어 설정 가져오기
+        env_config = self.load_env_config()
+        language = env_config.get("language", "en")
+        i18n = get_i18n()
+        i18n.set_language(language)
+        
         return {
             "player": {
                 "name": "",
-                "gender": "남성"
+                "gender": i18n.get_default("player_gender")
             },
             "character": {
-                "name": "예나",
+                "name": i18n.get_default("character_name"),
                 "age": 21,
-                "gender": "여성",
+                "gender": i18n.get_default("character_gender"),
                 "appearance": "korean beauty, short hair, brown eyes, cute face, casual outfit",
-                "personality": "밝고 활발하지만 좋아하는 사람 앞에서는 수줍음이 많음"
+                "personality": i18n.get_default("character_personality")
             },
             "initial_stats": {
                 "P": 50.0,
@@ -80,7 +87,7 @@ class ConfigManager:
                 "Dep": 0.0
             },
             "initial_context": "",
-            "initial_background": "college library table, evening light",
+            "initial_background": i18n.get_default("initial_background"),
             "llm_settings": {
                 "provider": "ollama",
                 "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
@@ -122,7 +129,21 @@ class ConfigManager:
     
     def _default_env_config(self) -> Dict:
         """기본 환경설정 반환"""
+        # 기존 설정 파일이 있으면 언어 설정 확인 (하위 호환성: 없으면 "kr"로 간주)
+        if config.ENV_CONFIG_FILE.exists():
+            try:
+                with open(config.ENV_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    existing_config = json.load(f)
+                    # 언어 설정이 있으면 사용, 없으면 "en" (새 글로벌 버전)
+                    language = existing_config.get("language", "en")
+            except:
+                language = "en"
+        else:
+            # 새 설치: 기본값은 "en"
+            language = "en"
+        
         return {
+            "language": language,
             "llm_settings": {
                 "provider": "ollama",
                 "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
@@ -140,6 +161,17 @@ class ConfigManager:
                 "scheduler": "simple"
             }
         }
+    
+    def get_language(self) -> str:
+        """현재 언어 설정 가져오기"""
+        env_config = self.load_env_config()
+        return env_config.get("language", "en")
+    
+    def set_language(self, language: str) -> bool:
+        """언어 설정 저장"""
+        env_config = self.load_env_config()
+        env_config["language"] = language
+        return self.save_env_config(env_config)
     
     def save_env_config(self, env_config: Dict) -> bool:
         """환경설정 파일 저장"""

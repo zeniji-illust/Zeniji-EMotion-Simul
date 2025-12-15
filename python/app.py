@@ -40,6 +40,7 @@ from config_manager import ConfigManager
 from ui_components import UIComponents
 from game_initializer import GameInitializer
 from ui_builder import UIBuilder
+from i18n import set_global_language, get_i18n
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("App")
@@ -171,11 +172,16 @@ class GameApp:
     def load_model(self) -> Tuple[str, bool]:
         """모델 로드 (설정에서 LLM provider 정보 읽어서 초기화)"""
         if self.model_loaded and self.brain is not None:
-            return "모델이 이미 로드되어 있습니다.", True
+            i18n = get_i18n()
+            return i18n.get_text("msg_model_already_loaded", category="ui"), True
         
         try:
             # 설정에서 LLM 설정 읽기
             env_config = self.load_env_config()
+            language = env_config.get("language", "en")
+            # 전역 언어 설정
+            set_global_language(language)
+            
             llm_settings = env_config.get("llm_settings", {})
             provider = llm_settings.get("provider", "ollama")
             ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
@@ -191,12 +197,14 @@ class GameApp:
                     dev_mode=self.dev_mode,
                     provider=provider,
                     model_name=model_name,
-                    api_key=api_key
+                    api_key=api_key,
+                    language=language
                 )
             else:
-                # Brain이 이미 있으면 memory_manager만 재초기화
+                # Brain이 이미 있으면 memory_manager만 재초기화하고 언어 업데이트
                 model_name = ollama_model if provider == "ollama" else openrouter_model
                 api_key = openrouter_api_key if provider == "openrouter" else None
+                self.brain.language = language
                 self.brain.memory_manager = MemoryManager(
                     dev_mode=self.dev_mode,
                     provider=provider,

@@ -8,6 +8,7 @@ from pathlib import Path
 import config
 from comfy_client import ComfyClient
 from memory_manager import MemoryManager
+from i18n import get_i18n, set_global_language
 
 logger = logging.getLogger("UIBuilder")
 
@@ -22,34 +23,39 @@ class UIBuilder:
         saved_config = app_instance.load_config()
         env_config = app_instance.load_env_config()
         
+        # 언어 설정 로드 및 전역 설정
+        language = env_config.get("language", "en")
+        set_global_language(language)
+        i18n = get_i18n()
+        
         with gr.Blocks(title="Zeniji Emotion Simul") as demo:
             gr.Markdown("# 🎮 Zeniji Emotion Simul")
             
             with gr.Tabs() as tabs:
                 # ========== 탭 1: 초기 설정 ==========
-                with gr.Tab("⚙️ 초기 설정", id="setup_tab") as setup_tab:
-                    gr.Markdown("## 캐릭터 및 시나리오 초기 설정")
+                with gr.Tab(i18n.get_text("tab_setup"), id="setup_tab") as setup_tab:
+                    gr.Markdown(f"## {i18n.get_text('setup_title')}")
                     
                     with gr.Row():
                         with gr.Column(scale=1):
-                            gr.Markdown("### 👤 주인공 설정")
+                            gr.Markdown(f"### {i18n.get_text('player_settings')}")
                             player_name = gr.Textbox(
-                                label="이름",
+                                label=i18n.get_text("name"),
                                 value=saved_config["player"].get("name", ""),
-                                placeholder="플레이어 이름"
+                                placeholder=i18n.get_text("name")
                             )
                             player_gender = gr.Radio(
-                                label="성별",
-                                choices=["남성", "여성", "기타"],
-                                value=saved_config["player"].get("gender", "남성")
+                                label=i18n.get_text("gender"),
+                                choices=[i18n.get_text("male"), i18n.get_text("female"), i18n.get_text("other")],
+                                value=saved_config["player"].get("gender", i18n.get_default("player_gender"))
                             )
                         
                         with gr.Column(scale=1):
-                            gr.Markdown("### 👥 상대방 설정")
+                            gr.Markdown(f"### {i18n.get_text('character_settings')}")
                             char_name = gr.Textbox(
-                                label="이름",
-                                value=saved_config["character"].get("name", "예나"),
-                                placeholder="캐릭터 이름"
+                                label=i18n.get_text("name"),
+                                value=saved_config["character"].get("name", i18n.get_default("character_name")),
+                                placeholder=i18n.get_text("name")
                             )
                             # character 정보 안전하게 가져오기
                             character_info = saved_config.get("character") or {}
@@ -57,16 +63,16 @@ class UIBuilder:
                             char_age_val = int(char_age_val) if char_age_val is not None else 21
                             
                             char_age = gr.Slider(
-                                label="나이",
+                                label=i18n.get_text("age"),
                                 minimum=18,
                                 maximum=100,
                                 value=char_age_val,
                                 step=1
                             )
                             char_gender = gr.Radio(
-                                label="성별",
-                                choices=["남성", "여성", "기타"],
-                                value=saved_config["character"].get("gender", "여성")
+                                label=i18n.get_text("gender"),
+                                choices=[i18n.get_text("male"), i18n.get_text("female"), i18n.get_text("other")],
+                                value=saved_config["character"].get("gender", i18n.get_default("character_gender"))
                             )
                     
                     gr.Markdown("### 📝 외모 및 성격")
@@ -216,10 +222,10 @@ class UIBuilder:
                             )
                     
                     with gr.Row():
-                        load_btn = gr.Button("📂 불러오기", variant="secondary", size="lg")
-                        save_btn = gr.Button("💾 저장", variant="secondary", size="lg")
-                        start_btn = gr.Button("🚀 시작", variant="primary", size="lg")
-                        reload_character_btn = gr.Button("🔄 새로고침", variant="secondary", size="sm")
+                        load_btn = gr.Button(i18n.get_text("btn_load"), variant="secondary", size="lg")
+                        save_btn = gr.Button(i18n.get_text("btn_save"), variant="secondary", size="lg")
+                        start_btn = gr.Button(i18n.get_text("btn_start"), variant="primary", size="lg")
+                        reload_character_btn = gr.Button(i18n.get_text("btn_reload"), variant="secondary", size="sm")
                     
                     def load_character(selected_file):
                         """캐릭터 파일 불러오기"""
@@ -642,8 +648,8 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             return f"❌ 시나리오 불러오기 실패: {str(e)}", gr.Tabs(selected=None), [], "", "", None, "", "", "", None
                 
                 # ========== 탭 2: 시나리오 ==========
-                with gr.Tab("📚 시나리오", id="scenario_tab") as scenario_tab:
-                    gr.Markdown("## 시나리오 선택")
+                with gr.Tab(i18n.get_text("tab_scenario"), id="scenario_tab") as scenario_tab:
+                    gr.Markdown(f"## {i18n.get_text('scenario_title')}")
                     
                     # 플레이스홀더 이미지 생성 함수 (4:3 비율, 높이가 더 높게)
                     def create_placeholder_image():
@@ -744,7 +750,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     # 카드 클릭 이벤트는 대화 탭 컴포넌트가 정의된 후에 연결됨 (아래에서 처리)
                 
                 # ========== 탭 3: 대화 ==========
-                with gr.Tab("💬 대화", id="chat_tab") as chat_tab:
+                with gr.Tab(i18n.get_text("tab_chat"), id="chat_tab") as chat_tab:
                     # 이벤트 알림 (고정 위치, 필요시 표시)
                     event_notification = gr.HTML(value="", visible=False, elem_id="event-notification-container")
                     
@@ -1093,8 +1099,42 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                 
                 # ========== 탭 3: 환경설정 ==========
-                with gr.Tab("⚙️ 환경설정", id="settings_tab"):
-                    gr.Markdown("## LLM 설정")
+                with gr.Tab(i18n.get_text("tab_settings"), id="settings_tab"):
+                    # 언어 설정 섹션 (최상단)
+                    gr.Markdown(f"## {i18n.get_text('language_settings')}")
+                    language_radio = gr.Radio(
+                        label=i18n.get_text("language_label"),
+                        choices=["en", "kr"],
+                        value=language,
+                        info=i18n.get_text("language_info")
+                    )
+                    language_status = gr.Markdown("")
+                    
+                    def change_language(selected_language):
+                        """언어 변경 핸들러"""
+                        try:
+                            env_config = app_instance.load_env_config()
+                            env_config["language"] = selected_language
+                            if app_instance.save_env_config(env_config):
+                                set_global_language(selected_language)
+                                # Brain 언어 업데이트
+                                if app_instance.brain is not None:
+                                    app_instance.brain.language = selected_language
+                                return i18n.get_text("msg_settings_save_success", category="ui")
+                            else:
+                                return i18n.get_text("msg_settings_save_failed", category="ui")
+                        except Exception as e:
+                            logger.error(f"Failed to change language: {e}")
+                            return f"❌ Language change failed: {str(e)}"
+                    
+                    language_radio.change(
+                        change_language,
+                        inputs=[language_radio],
+                        outputs=[language_status]
+                    )
+                    
+                    gr.Markdown("---")
+                    gr.Markdown(f"## {i18n.get_text('settings_llm_title')}")
                     
                     # LLM 설정 로드
                     llm_settings = env_config.get("llm_settings", {})

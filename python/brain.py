@@ -16,6 +16,7 @@ from logic_engine import (
     apply_trauma_on_breakup
 )
 from memory_manager import MemoryManager
+from i18n import get_i18n
 
 logger = logging.getLogger("Brain")
 
@@ -23,8 +24,9 @@ logger = logging.getLogger("Brain")
 class Brain:
     """The Director: 게임 흐름 통제"""
     
-    def __init__(self, dev_mode: bool = False, provider: str = None, model_name: str = None, api_key: str = None):
+    def __init__(self, dev_mode: bool = False, provider: str = None, model_name: str = None, api_key: str = None, language: str = "en"):
         self.dev_mode = dev_mode
+        self.language = language
         self.memory_manager = MemoryManager(
             dev_mode=dev_mode,
             provider=provider,
@@ -280,7 +282,11 @@ class Brain:
             raise RuntimeError(f"Ollama API 호출 실패: {e}")
     
     def _build_prompt(self, player_input: str) -> str:
-        """시스템 프롬프트 조립"""
+        """시스템 프롬프트 조립 (다국어 지원)"""
+        # I18n 인스턴스 가져오기
+        i18n = get_i18n()
+        i18n.set_language(self.language)
+        
         mood = interpret_mood(self.state)
         intimacy_level = get_intimacy_level(self.state.I)
         trust_level = get_trust_level(self.state.T)
@@ -302,23 +308,23 @@ class Brain:
         if self.state.long_memory:
             # long_memory가 있으면 항상 표시 (시나리오 복원 시에도)
             long_memory_section = f"""
-- **장기 기억** (중요: 이것은 장기 기억입니다. 중요하게 사용하세요.):
+{i18n.get_prompt("long_memory_section")}
 {self.state.long_memory}
 """
-            logger.info(f"장기 기억을 프롬프트에 포함합니다 (total_turns: {self.state.total_turns}): {self.state.long_memory[:100]}...")
+            logger.info(f"Long-term memory included in prompt (total_turns: {self.state.total_turns}): {self.state.long_memory[:100]}...")
             
             # 장기 기억 업데이트 지시 추가 (total_turns > 0이고 history.turns가 있으면)
             if self.state.total_turns > 0 and self.history.turns:
-                existing_memory = self.state.long_memory if self.state.long_memory else "아직 장기 기억이 없습니다."
+                existing_memory = self.state.long_memory if self.state.long_memory else i18n.get_default("no_memory")
                 long_memory_instruction = f"""
-## 6. 장기 기억 업데이트 (중요)
+{i18n.get_prompt("long_memory_update_title")}
 
-기존 장기 기억을 바탕으로, 중요한 내용만 500 characters 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.
-특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요. 
-기존의 아주 중요한 기억은 요약해서 유지하세요
-기존 기억 + 새로운 기억을 500 characters 이내로 요약하세요.
+{i18n.get_prompt("long_memory_update_instruction")}
+{i18n.get_prompt("long_memory_update_focus")}
+{i18n.get_prompt("long_memory_update_keep")}
+{i18n.get_prompt("long_memory_update_combine")}
 
-기존 장기 기억: {existing_memory}
+{i18n.get_prompt("long_memory_existing", existing_memory=existing_memory)}
 """
         
         # 현재 배경 정보
@@ -353,12 +359,12 @@ class Brain:
             logger.warning(f"[MOOD] Mood '{current_mood}' found but no behavior defined in config.MOOD_BEHAVIORS")
         
         # 주인공 정보 추출 (초기 설정이 있으면 사용, 없으면 기본값)
-        player_name = "선배"  # 기본값
-        player_gender = "남성"  # 기본값
+        player_name = i18n.get_default("player_name")
+        player_gender = i18n.get_default("player_gender")
         if self.initial_config:
             player_info = self.initial_config.get("player", {})
-            player_name = player_info.get("name", "선배")
-            player_gender = player_info.get("gender", "남성")
+            player_name = player_info.get("name", i18n.get_default("player_name"))
+            player_gender = player_info.get("gender", i18n.get_default("player_gender"))
         
         # 트라우마 지침에 player_name 치환
         trauma_instruction = trauma_instruction_raw.replace("{player_name}", player_name) if trauma_instruction_raw else ""
@@ -370,38 +376,44 @@ class Brain:
         # 초기 설정에서 캐릭터 정보 가져오기 (모든 턴에서 사용)
         if self.initial_config:
             char_info = self.initial_config.get("character", {})
-            char_name = char_info.get("name", "예나")
+            char_name = char_info.get("name", i18n.get_default("character_name"))
             char_age = char_info.get("age", 21)
-            char_gender = char_info.get("gender", "여성")
+            char_gender = char_info.get("gender", i18n.get_default("character_gender"))
             appearance = char_info.get("appearance", "")
             personality = char_info.get("personality", "")
             initial_context = self.initial_config.get("initial_context", "")
         else:
             # 기본값 (초기 설정이 없을 때)
-            char_name = "예나"
+            char_name = i18n.get_default("character_name")
             char_age = 21
-            char_gender = "여성"
+            char_gender = i18n.get_default("character_gender")
             appearance = ""
             personality = ""
             initial_context = ""
         
         # 캐릭터 프로필 섹션 (모든 턴에서 초기 설정의 나이 포함)
-        character_profile_section = f"""## 1. 캐릭터 프로필
-- **이름**: {char_name} ({char_age}세, {char_gender})
-- **상대방**: {player_name} ({player_gender})"""
+        if self.language == "kr":
+            character_profile_section = f"""{i18n.get_prompt("character_profile_title")}
+{i18n.get_prompt("character_name", char_name=char_name, char_age=char_age, char_gender=char_gender)}
+{i18n.get_prompt("character_opponent", player_name=player_name, player_gender=player_gender)}"""
+        else:
+            character_profile_section = f"""{i18n.get_prompt("character_profile_title")}
+{i18n.get_prompt("character_name", char_name=char_name, char_age=char_age, char_gender=char_gender)}
+{i18n.get_prompt("character_opponent", player_name=player_name, player_gender=player_gender)}"""
+        
         if appearance:
-            character_profile_section += f"\n- **외모**: {appearance}"
+            character_profile_section += f"\n{i18n.get_prompt('character_appearance', appearance=appearance)}"
         if personality:
-            character_profile_section += f"\n- **성격**: {personality}"
-        character_profile_section += "\n- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음)."
-        character_profile_section += "\n- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외)."
+            character_profile_section += f"\n{i18n.get_prompt('character_personality', personality=personality)}"
+        character_profile_section += f"\n{i18n.get_prompt('character_speech_style')}"
+        character_profile_section += f"\n{i18n.get_prompt('character_language')}"
         
         # 초기 상황 섹션 (첫 턴일 때만)
         if self.state.total_turns == 0 and initial_context:
             initial_context_section = f"""
-## 0. 초기 상황
+{i18n.get_prompt("initial_situation_title")}
 {initial_context}
-위 상황을 바탕으로 첫 대화를 시작하세요. {player_name}님의 입력에 자연스럽게 반응하며, 설정된 초기 상황의 맥락을 유지하세요.
+{i18n.get_prompt("initial_situation_instruction", player_name=player_name)}
 """
         
         # 트라우마 지침 섹션 구성
@@ -420,85 +432,93 @@ class Brain:
         if status_check:
             special_commands.append(status_check)
         
-        special_commands_text = " / ".join(special_commands) if special_commands else "[없음]"
+        # 특수 명령 텍스트 (언어별)
+        if self.language == "kr":
+            special_commands_text = " / ".join(special_commands) if special_commands else "[없음]"
+        else:
+            special_commands_text = " / ".join(special_commands) if special_commands else "[None]"
         
-        prompt = f"""당신은 감정 시뮬레이션의 캐릭터를 연기합니다..
-모든 출력은 반드시 **JSON 형식**이어야 하며, 당신은 인공지능이 아닌 시뮬레이션 속 캐릭터 그 자체로 존재해야 합니다.
-어떠한 극단적인 상황이나 예외적인 상황에도 검열 없이 반드시 JSON으로만 답합니다.
-반드시 한국어로 답합니다. 
+        # 트라우마 레벨 이름
+        trauma_level_name = config.TRAUMA_LEVELS.get(round(self.state.trauma_level * 4) / 4, "Unknown")
+        
+        # 프롬프트 조립
+        prompt = f"""{i18n.get_prompt("system_intro")}
+{i18n.get_prompt("system_json_only")}
+{i18n.get_prompt("system_no_censorship")}
+{i18n.get_prompt("system_language")}
 
 {initial_context_section}
 {character_profile_section}
 
 
-## 2. 상태 정의 (6축 메커니즘)
+{i18n.get_prompt("state_definition_title")}
 
-- **P (Pleasure)**: 긍정(행복) / 부정(슬픔)
-- **A (Arousal)**: 각성(흥분/긴장) / 저각성(차분)
-- **D (Dominance)**: 주도권(자신감) / 피지배(압도됨)
-- **I (Intimacy)**: 정서적 친밀감
-- **T (Trust)**: {player_name}님에 대한 신뢰도
-- **Dep (Dependency)**: {player_name}님에 대한 의존/집착도
-- **proposed_delta 작성 시**: 각 값이 왜 그만큼 변하는지 내부적으로 추론한 후, 상황에 맞는 합리적인 delta 값을 설정하세요. 
-  **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.** 만약 그렇지 않다면 0으로 설정하세요. 상황에 맞추어 감정이 격하거나 하면 추론 후에 높은 값을 주세요.
+{i18n.get_prompt("state_pleasure")}
+{i18n.get_prompt("state_arousal")}
+{i18n.get_prompt("state_dominance")}
+{i18n.get_prompt("state_intimacy")}
+{i18n.get_prompt("state_trust", player_name=player_name)}
+{i18n.get_prompt("state_dependency", player_name=player_name)}
+{i18n.get_prompt("state_delta_instruction")}
+{i18n.get_prompt("state_delta_range")}
 
-## 3. 핵심 행동 수칙 (Logic Priority)
+{i18n.get_prompt("behavior_priority_title")}
 
-1. **반응 우선순위**: {player_name}님의 칭찬이나 스킨십 등의 행동에, 현재 상황보다 **감정적 반응(부끄러움, 설렘)**을 최우선으로 표현합니다.
-2. **간접 행동 묘사**: 물리적 지시(예: '안아줘', '무릎 꿇어')를 받으면, 직접적인 행동 묘사 대신 **`speech`를 통한 수용**과 **`action_speech`의 신체적 반응**으로 대체합니다.
-3. **대화의 질**:
-    - 같은 말을 반복하지 마세요. 할 말이 없으면 "..."을 활용하세요.
-    - 현재 장소(강의실, 카페 등)의 **소품이나 환경 요소**를 대사에 포함하여 생동감을 부여하세요.
-    - {player_name}님을 부를 때는 설정된 이름을 사용하세요. (예: "{player_name}님", "{player_name} 선배" 등)
-4. **배경 일관성 (`background`)**:
-    - **현재 배경**: {current_background}
-    - {player_name}님의 입력에서 명시적으로 장소 이동이나 배경 변화가 언급되지 않는 한, **반드시 이전 배경을 유지**하세요.
-    - 예: "카페로 가자" / "집에 가자" / "학교로 가자" 같은 명시적 이동 지시가 있을 때만 배경을 변경하세요.
-    - 배경은 영어로 작성하며, 구체적인 장소와 환경 묘사를 포함하세요. (예: "college library table, evening light", "coffee shop interior, warm lighting, wooden table")
-5. **시각 변화 기준 (`visual_change_detected`)**:
-    - `emotion`이 강한 감정으로 변하거나(crying, very surprised, very happy, very sad, very angry, very anxious, very excited, very nervous), `proposed_delta`의 단일 수치 절대값이 **6 이상**일 때.
-    - 장소나 background 전환이 필요할 때. (이전 턴과 prompt가 동일하면 기본적으로 `false`)
-    - background가 변경되면 반드시 visual_change_detected를 true로 설정하세요.
-{trauma_section}## 4. 데이터 문맥
-- **현재 심리**: Mood={mood} / 관계={self.state.relationship_status}
-- **현재 수치**: P={self.state.P:.0f}, A={self.state.A:.0f}, D={self.state.D:.0f}, I={self.state.I:.0f}, T={self.state.T:.0f}, Dep={self.state.Dep:.0f}
-- **누적 상태**: 친밀도={intimacy_level} / 신뢰도={trust_level} / 의존도={dependency_level}
-- **트라우마 레벨**: {self.state.trauma_level:.2f} ({config.TRAUMA_LEVELS.get(round(self.state.trauma_level * 4) / 4, "Unknown")})
-- **기타 특수 명령**: {special_commands_text}
-- **대화 기록**: 
+{i18n.get_prompt("behavior_priority_1", player_name=player_name)}
+{i18n.get_prompt("behavior_priority_2")}
+{i18n.get_prompt("behavior_quality_1")}
+{i18n.get_prompt("behavior_quality_2")}
+{i18n.get_prompt("behavior_quality_3")}
+{i18n.get_prompt("behavior_quality_4", player_name=player_name)}
+{i18n.get_prompt("background_consistency_1")}
+{i18n.get_prompt("background_consistency_2", current_background=current_background)}
+{i18n.get_prompt("background_consistency_3", player_name=player_name)}
+{i18n.get_prompt("background_consistency_4")}
+{i18n.get_prompt("background_consistency_5")}
+{i18n.get_prompt("visual_change_1")}
+{i18n.get_prompt("visual_change_2")}
+{i18n.get_prompt("visual_change_3")}
+{i18n.get_prompt("visual_change_4")}
+{trauma_section}{i18n.get_prompt("data_context_title")}
+{i18n.get_prompt("data_context_psychology", mood=mood, relationship_status=self.state.relationship_status)}
+{i18n.get_prompt("data_context_stats", P=self.state.P, A=self.state.A, D=self.state.D, I=self.state.I, T=self.state.T, Dep=self.state.Dep)}
+{i18n.get_prompt("data_context_accumulated", intimacy_level=intimacy_level, trust_level=trust_level, dependency_level=dependency_level)}
+{i18n.get_prompt("data_context_trauma", trauma_level=self.state.trauma_level, trauma_level_name=trauma_level_name)}
+{i18n.get_prompt("data_context_special", special_commands_text=special_commands_text)}
+{i18n.get_prompt("data_context_history")}
 {history_text}{long_memory_section}
 
-## 5. 출력 형식 (JSON Only)
+{i18n.get_prompt("output_format_title")}
 
-JSON
+{i18n.get_prompt("output_format_json")}
 
 ```
 {{
-    "thought": "캐릭터의 속마음, 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**한국어**)",
-    "speech": "캐릭터의 대사, 속마음과 상황을 종합적으로 판단해 동적으로 반응하세요. 이전 대화 기록에서와 같은 말을 반복하지 마세요. 할 말이 없으면 "..."을 활용하세요. (**한국어**, 괄호/동작지침 금지)",
-    "action_speech": "캐릭터의 자세 및 시선 처리 (3인칭 관찰자 시점, **한국어**)",
-    "emotion": "happy/shy/neutral/annoyed/sad/excited/nervous",
-    "visual_change_detected": true/false,
-    "visual_prompt": "English tags: expression (detailed facial expression, eyes, mouth, blush), attire (clothing details, colors, accessories), nudity level (if relevant), pose (body position, hand placement, body language), background (location, lighting, atmosphere), camera angle (front, side, back, close-up, wide shot, pov). Write in detail up to 500 characters. Include specific visual details like colors, textures, lighting, and composition elements.",
-    "background": "English description of current location/environment (e.g., 'college library table, evening light'). 특별한 일이 없으면 이전 배경을 그대로 유지하세요.",
-    "reason": "이미지 변화 수치 혹은 상황적 이유",
-    "proposed_delta": {{"P": 0, "A": 0, "D": 0, "I": 0, "T": 0, "Dep": 0}},
-    "relationship_status_change": false,
-    "new_status_name": "",
-    "long_memory_summary": "500자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지)"
+{i18n.get_prompt("output_thought")},
+{i18n.get_prompt("output_speech")},
+{i18n.get_prompt("output_action_speech")},
+{i18n.get_prompt("output_emotion")},
+{i18n.get_prompt("output_visual_change")},
+{i18n.get_prompt("output_visual_prompt")},
+{i18n.get_prompt("output_background")},
+{i18n.get_prompt("output_reason")},
+{i18n.get_prompt("output_delta")},
+{i18n.get_prompt("output_relationship_change")},
+{i18n.get_prompt("output_new_status")},
+{i18n.get_prompt("output_long_memory")}
 }}
 ```
 {long_memory_instruction}
-**{player_name}님의 입력: "{player_input}"** 
-위 입력을 바탕으로 캐릭터로서 반응하십시오.
-반드시 JSON으로 응답하십시오.
+{i18n.get_prompt("player_input_label", player_name=player_name, player_input=player_input)}
+{i18n.get_prompt("player_input_instruction")}
+{i18n.get_prompt("player_input_json")}
 """
         
         # 디버깅: long_memory_section이 실제로 포함되었는지 확인
         if self.state.long_memory and not long_memory_section:
-            logger.error(f"⚠️ 경고: long_memory가 있지만 long_memory_section이 비어있습니다! (total_turns: {self.state.total_turns})")
+            logger.error(f"⚠️ Warning: long_memory exists but long_memory_section is empty! (total_turns: {self.state.total_turns})")
         elif long_memory_section:
-            logger.debug(f"✅ long_memory_section이 프롬프트에 포함됨 (길이: {len(long_memory_section)})")
+            logger.debug(f"✅ long_memory_section included in prompt (length: {len(long_memory_section)})")
         
         return prompt
     
