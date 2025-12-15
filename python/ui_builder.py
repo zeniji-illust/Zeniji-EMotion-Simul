@@ -75,25 +75,25 @@ class UIBuilder:
                                 value=saved_config["character"].get("gender", i18n.get_default("character_gender"))
                             )
                     
-                    gr.Markdown("### 📝 외모 및 성격")
+                    gr.Markdown(i18n.get_text("appearance_and_personality_section"))
                     appearance = gr.Textbox(
-                        label="외모 묘사 (영어 태그 형식)",
+                        label=i18n.get_text("appearance"),
                         value=saved_config["character"].get("appearance", ""),
-                        placeholder="예: korean beauty, short hair, brown eyes, cute face, casual outfit",
-                        info="이미지 생성용 영어 태그로 입력하세요 (쉼표로 구분)",
+                        placeholder=i18n.get_text("appearance_placeholder"),
+                        info=i18n.get_text("appearance_info"),
                         lines=3,
                         max_lines=5
                     )
                     personality = gr.Textbox(
-                        label="성격 묘사",
+                        label=i18n.get_text("personality"),
                         value=saved_config["character"].get("personality", ""),
-                        placeholder="예: 밝고 활발하지만 좋아하는 사람 앞에서는 수줍음이 많음",
+                        placeholder=i18n.get_text("personality_placeholder"),
                         lines=3,
                         max_lines=5
                     )
                     
-                    gr.Markdown("### 📊 심리 지표 설정 (6축 시스템)")
-                    gr.Markdown("각 수치는 0~100 사이이며, 초기값은 **최대 70**으로 제한됩니다.")
+                    gr.Markdown(f"### {i18n.get_text('stats_title')}")
+                    gr.Markdown(i18n.get_text("stats_info"))
                     
                     # initial_stats가 없거나 None일 수 있으므로 안전하게 처리
                     initial_stats = saved_config.get("initial_stats") or {}
@@ -116,56 +116,56 @@ class UIBuilder:
                         with gr.Column():
                             # 명시적으로 or 처리로 None 방지
                             p_val = gr.Slider(
-                                label="P (Pleasure) - 쾌락",
+                                label=i18n.get_text("pleasure"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("P", 50.0) or 50.0,
                                 step=1.0,
-                                info="관계의 긍정/부정"
+                                info=i18n.get_text("pleasure_info")
                             )
                             a_val = gr.Slider(
-                                label="A (Arousal) - 각성",
+                                label=i18n.get_text("arousal"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("A", 40.0) or 40.0,
                                 step=1.0,
-                                info="긴장감/에너지"
+                                info=i18n.get_text("arousal_info")
                             )
                             d_val = gr.Slider(
-                                label="D (Dominance) - 지배",
+                                label=i18n.get_text("dominance"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("D", 40.0) or 40.0,
                                 step=1.0,
-                                info="관계의 주도권"
+                                info=i18n.get_text("dominance_info")
                             )
                         with gr.Column():
                             i_val = gr.Slider(
-                                label="I (Intimacy) - 친밀",
+                                label=i18n.get_text("intimacy"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("I", 20.0) or 20.0,
                                 step=1.0,
-                                info="정서적 친밀감"
+                                info=i18n.get_text("intimacy_info")
                             )
                             t_val = gr.Slider(
-                                label="T (Trust) - 신뢰",
+                                label=i18n.get_text("trust"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("T", 50.0) or 50.0,
                                 step=1.0,
-                                info="신뢰도"
+                                info=i18n.get_text("trust_info")
                             )
                             dep_val = gr.Slider(
-                                label="Dep (Dependency) - 의존",
+                                label=i18n.get_text("dependency"),
                                 minimum=0,
                                 maximum=100,
                                 value=safe_get_stat("Dep", 0.0) or 0.0,
                                 step=1.0,
-                                info="의존/집착도"
+                                info=i18n.get_text("dependency_info")
                             )
                     
-                    gr.Markdown("### 🎭 프리셋")
+                    gr.Markdown(f"### {i18n.get_text('presets')}")
                     with gr.Row():
                         for preset_name in config.PRESETS.keys():
                             preset_btn = gr.Button(preset_name, variant="secondary")
@@ -180,19 +180,19 @@ class UIBuilder:
                                 outputs=[p_val, a_val, d_val, i_val, t_val, dep_val, appearance, personality]
                             )
                     
-                    gr.Markdown("### 📖 초기 상황")
+                    gr.Markdown(f"### {i18n.get_text('initial_situation')}")
                     initial_context = gr.Textbox(
-                        label="초기 상황 설명",
+                        label=i18n.get_text("initial_context"),
                         value=saved_config.get("initial_context", ""),
-                        placeholder="대화가 시작되는 배경 상황을 설명하세요.",
+                        placeholder=i18n.get_text("initial_context_placeholder"),
                         lines=4,
                         max_lines=6
                     )
                     initial_background = gr.Textbox(
-                        label="배경 (영어)",
-                        value=saved_config.get("initial_background", "college library table, evening light"),
-                        placeholder="college library table, evening light",
-                        info="이미지 생성용 배경 설명 (영어)"
+                        label=i18n.get_text("initial_background"),
+                        value=saved_config.get("initial_background", i18n.get_text("initial_background_placeholder")),
+                        placeholder=i18n.get_text("initial_background_placeholder"),
+                        info=i18n.get_text("initial_background_info")
                     )
                     
                     # TODO: 랜덤 상황 생성 버튼
@@ -204,21 +204,21 @@ class UIBuilder:
                     with gr.Row():
                         with gr.Column(scale=2):
                             character_file_dropdown = gr.Dropdown(
-                                label="캐릭터 파일",
+                                label=i18n.get_text("character_file"),
                                 choices=app_instance.get_character_files(),
                                 value=None,
-                                info="저장된 캐릭터 설정 파일 선택"
+                                info=i18n.get_text("character_file_info")
                             )
                         with gr.Column(scale=1):
                             character_filename_input = gr.Textbox(
-                                label="저장할 파일명",
-                                placeholder="예: my_character",
-                                info="파일명만 입력 (확장자 자동 추가)"
+                                label=i18n.get_text("save_filename"),
+                                placeholder=i18n.get_text("save_filename_placeholder"),
+                                info=i18n.get_text("save_filename_info")
                             )
                             overwrite_checkbox = gr.Checkbox(
-                                label="덮어쓰기 허용",
+                                label=i18n.get_text("overwrite_allow"),
                                 value=False,
-                                info="같은 파일명이 있을 때 덮어쓰기 허용"
+                                info=i18n.get_text("overwrite_info")
                             )
                     
                     with gr.Row():
@@ -230,19 +230,19 @@ class UIBuilder:
                     def load_character(selected_file):
                         """캐릭터 파일 불러오기"""
                         if not selected_file:
-                            return "⚠️ 파일을 선택해주세요.", *([gr.update()] * 12)
+                            return i18n.get_text("msg_file_not_selected"), *([gr.update()] * 12)
                         
                         try:
                             config = app_instance.load_character_config(selected_file)
                             
                             # UI 업데이트
                             return (
-                                f"✅ {selected_file} 불러오기 완료!",
+                                i18n.get_text("msg_load_success", filename=selected_file),
                                 config["player"].get("name", ""),
-                                config["player"].get("gender", "남성"),
+                                config["player"].get("gender", i18n.get_text("male")),
                                 config["character"].get("name", "예나"),
                                 config["character"].get("age", 21),
-                                config["character"].get("gender", "여성"),
+                                config["character"].get("gender", i18n.get_text("female")),
                                 config["character"].get("appearance", ""),
                                 config["character"].get("personality", ""),
                                 config["initial_stats"].get("P", 50.0),
@@ -252,18 +252,18 @@ class UIBuilder:
                                 config["initial_stats"].get("T", 50.0),
                                 config["initial_stats"].get("Dep", 0.0),
                                 config.get("initial_context", ""),
-                                config.get("initial_background", "college library table, evening light")
+                                config.get("initial_background", i18n.get_text("initial_background_placeholder"))
                             )
                         except Exception as e:
                             logger.error(f"Failed to load character: {e}")
-                            return f"❌ 불러오기 실패: {str(e)}", *([gr.update()] * 12)
+                            return i18n.get_text("msg_load_failed", error=str(e)), *([gr.update()] * 12)
                     
                     def save_character(filename, overwrite, player_name, player_gender, char_name, char_age, char_gender,
                                      appearance, personality, p_val, a_val, d_val, i_val, t_val, dep_val,
                                      initial_context, initial_background):
                         """캐릭터 설정 저장"""
                         if not filename or not filename.strip():
-                            return "⚠️ 파일명을 입력해주세요.", gr.Dropdown()
+                            return i18n.get_text("msg_filename_required"), gr.Dropdown()
                         
                         try:
                             # 파일명 정리
@@ -274,18 +274,18 @@ class UIBuilder:
                             # 파일이 이미 존재하는지 확인
                             file_path = config.CHARACTER_DIR / clean_filename
                             if file_path.exists() and not overwrite:
-                                return f"⚠️ 경고: '{clean_filename}' 파일이 이미 존재합니다. '덮어쓰기 허용'을 체크하거나 다른 파일명을 사용해주세요.", gr.Dropdown()
+                                return i18n.get_text("msg_file_exists", filename=clean_filename), gr.Dropdown()
                             
                             # 설정 데이터 구성
                             config_data = {
                                 "player": {
                                     "name": player_name or "",
-                                    "gender": player_gender or "남성"
+                                    "gender": player_gender or i18n.get_text("male")
                                 },
                                 "character": {
                                     "name": char_name or "예나",
                                     "age": int(char_age) if char_age else 21,
-                                    "gender": char_gender or "여성",
+                                    "gender": char_gender or i18n.get_text("female"),
                                     "appearance": appearance or "",
                                     "personality": personality or ""
                                 },
@@ -298,7 +298,7 @@ class UIBuilder:
                                     "Dep": float(dep_val) if dep_val is not None else 0.0
                                 },
                                 "initial_context": initial_context or "",
-                                "initial_background": initial_background or "college library table, evening light"
+                                "initial_background": initial_background or i18n.get_text("initial_background_placeholder")
                             }
                             
                             if app_instance.save_character_config(config_data, clean_filename):
@@ -307,12 +307,12 @@ class UIBuilder:
                                 
                                 # 드롭다운 목록 새로고침
                                 updated_files = app_instance.get_character_files()
-                                return f"✅ {clean_filename} 저장 완료! (character_config.json도 업데이트됨)", gr.Dropdown(choices=updated_files, value=clean_filename.replace('.json', ''))
+                                return i18n.get_text("msg_save_success", filename=clean_filename), gr.Dropdown(choices=updated_files, value=clean_filename.replace('.json', ''))
                             else:
-                                return "❌ 저장 실패", gr.Dropdown()
+                                return i18n.get_text("msg_save_failed"), gr.Dropdown()
                         except Exception as e:
                             logger.error(f"Failed to save character: {e}")
-                            return f"❌ 저장 실패: {str(e)}", gr.Dropdown()
+                            return i18n.get_text("msg_save_failed"), gr.Dropdown()
                     
                     def reload_character_files():
                         """캐릭터 파일 목록 새로고침"""
@@ -666,7 +666,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 font = ImageFont.truetype("gulim.ttc", 16)
                             except:
                                 font = ImageFont.load_default()
-                        text = "이미지 없음"
+                        text = i18n.get_text("no_image")
                         bbox = draw.textbbox((0, 0), text, font=font)
                         text_width = bbox[2] - bbox[0]
                         text_height = bbox[3] - bbox[1]
@@ -679,14 +679,28 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     def get_scenario_gallery_items():
                         """시나리오 갤러리 아이템 생성 (동적 업데이트 가능)"""
                         from PIL import Image
+                        import os
                         scenarios = app_instance.get_scenario_files()
+                        
+                        # 파일 수정 시간 기준으로 최신순 정렬 (역순)
+                        scenario_paths = []
+                        for scenario_name in scenarios:
+                            scenario_path = config.SCENARIOS_DIR / f"{scenario_name}.json"
+                            if scenario_path.exists():
+                                mtime = os.path.getmtime(scenario_path)
+                                scenario_paths.append((mtime, scenario_name))
+                        
+                        # 수정 시간 역순 정렬 (최신이 먼저)
+                        scenario_paths.sort(reverse=True)
+                        scenarios = [name for _, name in scenario_paths]
+                        
                         gallery_items = []
                         
                         # 4:3 비율로 리사이즈 (높이가 더 높게)
                         target_width = 200
                         target_height = int(target_width * 4 / 3)  # 267
                         
-                        for scenario_name in scenarios[:12]:  # 최대 12개
+                        for scenario_name in scenarios:  # 전체 시나리오 표시
                             image_path = config.SCENARIOS_DIR / f"{scenario_name}.png"
                             if image_path.exists():
                                 try:
@@ -707,12 +721,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                     # 시나리오 갤러리 (동적 업데이트 가능)
                     scenario_gallery = gr.Gallery(
-                        label="시나리오",
+                        label=i18n.get_text("scenario_title"),
                         value=get_scenario_gallery_items(),
                         show_label=False,
                         elem_id="scenario-gallery",
                         columns=4,
-                        rows=3,
                         height="auto",
                         allow_preview=False
                     )
@@ -720,6 +733,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     # CSS로 이미지 크기 고정
                     gr.HTML(value="""
                     <style>
+                    /* 이미지 스타일 */
                     #scenario-gallery img {
                         max-width: 200px !important;
                         max-height: 267px !important;
@@ -727,16 +741,44 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         height: 267px !important;
                         object-fit: contain !important;
                     }
+                    /* 갤러리 아이템 컨테이너 - 중앙 정렬 */
                     #scenario-gallery .gallery-item {
                         width: 200px !important;
-                        height: 267px !important;
+                        height: auto !important;
+                        min-height: 267px !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        align-items: center !important;
+                        justify-content: flex-start !important;
+                    }
+                    /* 제목/캡션 스타일 - 가운데 정렬 및 2줄까지 표시 */
+                    #scenario-gallery .gallery-item .caption-label {
+                        max-width: 180px !important;
+                        width: 180px !important;
+                        margin-left: auto !important;
+                        margin-right: auto !important;
+                        margin-top: 4px !important;
+                        margin-bottom: 0 !important;
+                        padding: 0 !important;
+                        white-space: normal !important;
+                        word-wrap: break-word !important;
+                        overflow-wrap: break-word !important;
+                        display: -webkit-box !important;
+                        -webkit-line-clamp: 2 !important;
+                        -webkit-box-orient: vertical !important;
+                        overflow: hidden !important;
+                        text-overflow: ellipsis !important;
+                        line-height: 1.4em !important;
+                        max-height: 2.8em !important;
+                        text-align: center !important;
+                        box-sizing: border-box !important;
                     }
                     </style>
                     """)
                     
                     # 새로고침 버튼
                     with gr.Row():
-                        reload_scenario_cards_btn = gr.Button("🔄 새로고침", variant="secondary")
+                        reload_scenario_cards_btn = gr.Button(i18n.get_text("btn_reload"), variant="secondary")
                     
                     def reload_scenario_gallery():
                         """시나리오 갤러리 새로고침"""
@@ -756,34 +798,36 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                     with gr.Row():
                         with gr.Column(scale=2):
-                            chatbot = gr.Chatbot(label="대화", height=500)
+                            chatbot = gr.Chatbot(label=i18n.get_text("chat_label"), height=500)
                             
                             # 속마음: Accordion으로 접기/펼치기 가능하게
-                            with gr.Accordion("💭 속마음 보기", open=False, visible=True) as thought_accordion:
+                            with gr.Accordion(i18n.get_text("thought_title"), open=False, visible=True) as thought_accordion:
                                 thought_display = gr.Markdown(label="", visible=True)
                             
-                            action_display = gr.Markdown(label="🎭 행동", visible=True)
-                            user_input = gr.Textbox(label="입력", placeholder="말을 입력하세요...", interactive=False)
-                            submit_btn = gr.Button("전송", variant="primary", interactive=False)
+                            action_display = gr.Markdown(label=i18n.get_text("action_title"), visible=True)
+                            user_input = gr.Textbox(label=i18n.get_text("input_label"), placeholder=i18n.get_text("input_placeholder"), interactive=False)
+                            submit_btn = gr.Button(i18n.get_text("btn_send"), variant="primary", interactive=False)
                         
                         with gr.Column(scale=1):
-                            stats_chart = gr.Plot(label="6축 수치", show_label=True)
-                            stats_display = gr.Markdown(label="상태 상세", show_label=True)
-                            # 이미지와 재시도 버튼을 함께 표시하기 위한 컨테이너
-                            image_display = gr.Image(label="캐릭터", height=400, show_label=False)
-                            retry_image_btn = gr.Button("🔄 이미지 재시도", variant="secondary", size="sm", visible=False)
-                            # 재시도 버튼 상태 표시용 (간단한 메시지용)
+                            stats_chart = gr.Plot(label=i18n.get_text("stats_chart_label"), show_label=True)
+                            stats_display = gr.Markdown(label=i18n.get_text("stats_detail_label"), show_label=True)
+                            # 이미지와 재시도/저장 버튼을 함께 표시하기 위한 컨테이너
+                            image_display = gr.Image(label=i18n.get_text("character_image_label"), height=400, show_label=False)
+                            retry_image_btn = gr.Button(i18n.get_text("btn_retry_image"), variant="secondary", size="sm", visible=False)
+                            save_image_btn = gr.Button(i18n.get_text("btn_save_image"), variant="secondary", size="sm", visible=True)
+                            # 버튼 상태/메시지 표시용
                             retry_image_status = gr.Markdown("", visible=False, elem_id="retry-status")
+                            save_image_status = gr.Markdown("", visible=False, elem_id="save-image-status")
                     
                     # 시나리오 저장 (모든 컴포넌트 아래, 화면 너비 전체 사용)
                     with gr.Row():
                         scenario_save_name = gr.Textbox(
-                            label="시나리오 저장",
-                            placeholder="예: my_scenario",
-                            info="현재 대화를 시나리오로 저장",
+                            label=i18n.get_text("scenario_save_label"),
+                            placeholder=i18n.get_text("scenario_save_placeholder"),
+                            info=i18n.get_text("scenario_save_info"),
                             scale=3
                         )
-                        save_scenario_btn = gr.Button("💾 시나리오 저장", variant="secondary", scale=1)
+                        save_scenario_btn = gr.Button(i18n.get_text("btn_save_scenario"), variant="secondary", scale=1)
                         scenario_save_status = gr.Markdown("")
                     
                     # 이미지 업데이트 트리거용 hidden state
@@ -853,7 +897,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         return gr.skip()
                     
                     def save_scenario_handler(scenario_name, history):
-                        """시나리오 저장 핸들러 (context.recent_turns만 저장)"""
+                        """시나리오 저장 핸들러 (Gradio history에서 전체 대화 저장, context.recent_turns는 최근 10턴만 저장)"""
                         if not scenario_name or not scenario_name.strip():
                             return "⚠️ 시나리오 이름을 입력해주세요."
                         
@@ -893,13 +937,29 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 if hasattr(app_instance.brain, 'initial_config') and app_instance.brain.initial_config:
                                     scenario_data["initial_config"] = app_instance.brain.initial_config
                                 
+                                # 전체 대화를 Gradio history에서 가져와서 저장
+                                # Chatbot 히스토리는 normalize_chatbot_history로 한 번 더 정규화해서 사용
+                                conversation_list = []
+                                try:
+                                    normalized_history = normalize_chatbot_history(history)
+                                    # 이미 {"role": ..., "content": ...} 형식이므로 그대로 사용
+                                    for item in normalized_history:
+                                        role = item.get("role")
+                                        content = item.get("content", "")
+                                        if role and isinstance(content, str) and content.strip():
+                                            conversation_list.append({
+                                                "role": role,
+                                                "content": content.strip()
+                                            })
+                                except Exception as e:
+                                    logger.warning(f"Failed to normalize chatbot history for scenario save: {e}")
+                                
                                 # 최근 대화 턴 (문맥 정보) - context에 저장 (최근 10턴)
-                                conversation_list = []  # 전체 대화 conversation 형식
                                 if hasattr(app_instance.brain, 'history') and app_instance.brain.history:
                                     recent_turns = []
                                     last_background = None
                                     last_visual_prompt = None
-                                    history_turns = app_instance.brain.history.turns  # 모든 턴
+                                    history_turns = app_instance.brain.history.turns  # 최근 10턴만 있음
                                     
                                     # 최근 10턴만 context에 저장
                                     recent_history_turns = history_turns[-10:] if len(history_turns) > 10 else history_turns
@@ -908,14 +968,6 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                         if hasattr(turn, 'player_input') and hasattr(turn, 'character_speech'):
                                             turn_bg = getattr(turn, 'background', '')
                                             turn_visual = getattr(turn, 'visual_prompt', '')
-                                            
-                                            # 전체 대화를 conversation 형식으로 변환
-                                            player_input = turn.player_input
-                                            character_speech = getattr(turn, 'character_speech', '')
-                                            if player_input:
-                                                conversation_list.append({"role": "user", "content": player_input})
-                                            if character_speech:
-                                                conversation_list.append({"role": "assistant", "content": character_speech})
                                             
                                             # 최근 10턴만 recent_turns에 저장
                                             if turn in recent_history_turns:
@@ -947,11 +999,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                         context_data["last_visual_prompt"] = last_visual_prompt
                                     
                                     scenario_data["context"] = context_data
-                                    
-                                    if not recent_turns:
-                                        return "⚠️ 저장할 대화 내용이 없습니다. 대화를 먼저 시작해주세요."
                                 
-                                # conversation 저장 (전체 대화, 최하단)
+                                # conversation 저장 (전체 대화, Gradio history 기반)
+                                if not conversation_list:
+                                    return "⚠️ 저장할 대화 내용이 없습니다. 대화를 먼저 시작해주세요."
+                                
                                 scenario_data["conversation"] = conversation_list
                             else:
                                 return "⚠️ 게임이 시작되지 않았습니다."
@@ -1019,6 +1071,50 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             logger.error(f"Failed to retry image generation: {e}")
                             return gr.skip(), gr.Markdown(value=f"❌ 오류: {str(e)}", visible=True), gr.Button(visible=True)
                     
+                    def save_current_image_handler():
+                        """현재 표시된 이미지를 기반으로 오버레이 텍스트를 생성해 image 폴더에 저장"""
+                        if app_instance.current_image is None:
+                            return gr.Markdown(value="⚠️ 저장할 이미지가 없습니다.", visible=True)
+                        
+                        try:
+                            # 상태 정보에서 오버레이 텍스트 구성
+                            if app_instance.brain is not None and app_instance.brain.state is not None:
+                                state = app_instance.brain.state
+                                stats = state.get_stats_dict()
+                                from logic_engine import interpret_mood
+                                calculated_mood = interpret_mood(state)
+                                badges_for_overlay = list(getattr(state, "badges", []))
+                                relationship = getattr(state, "relationship_status", "")
+                                overlay_text = app_instance._build_overlay_text(
+                                    stats=stats or {},
+                                    relationship=relationship,
+                                    mood=calculated_mood,
+                                    badges=badges_for_overlay,
+                                )
+                                image_to_save = app_instance.current_image
+                                if overlay_text:
+                                    image_to_save = app_instance._overlay_text_on_image(image_to_save, overlay_text)
+
+                                # 턴 번호 사용 (있으면)
+                                turn_number = getattr(state, "total_turns", None)
+                                saved_path = app_instance._save_generated_image(image_to_save, turn_number)
+                                if saved_path:
+                                    return gr.Markdown(value=f"✅ 이미지 저장 완료: {saved_path}", visible=True)
+                                else:
+                                    return gr.Markdown(value="❌ 이미지 저장에 실패했습니다.", visible=True)
+                            else:
+                                # 상태가 없으면 그냥 현재 이미지만 저장 (오버레이 없이)
+                                saved_path = app_instance._save_generated_image(app_instance.current_image, None)
+                                if saved_path:
+                                    return gr.Markdown(value=f"✅ 이미지 저장 완료: {saved_path}", visible=True)
+                                else:
+                                    return gr.Markdown(value="❌ 이미지 저장에 실패했습니다.", visible=True)
+                        except Exception as e:
+                            logger.error(f"Failed to save current image with overlay: {e}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            return gr.Markdown(value=f"❌ 이미지 저장 중 오류: {str(e)}", visible=True)
+
                     # 메인 submit - 이미지와 차트는 비동기로 업데이트
                     submit_btn.click(
                         on_submit,
@@ -1054,6 +1150,13 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         inputs=[],
                         outputs=[image_display, retry_image_status, retry_image_btn]
                     )
+
+                    # 이미지 저장 버튼 클릭 핸들러
+                    save_image_btn.click(
+                        save_current_image_handler,
+                        inputs=[],
+                        outputs=[save_image_status]
+                    )
                     
                     # 시나리오 갤러리 선택 이벤트 연결 (대화 탭 컴포넌트 정의 이후)
                     def on_scenario_gallery_select(evt: gr.SelectData):
@@ -1061,7 +1164,18 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         if evt.index is None:
                             return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip()
                         
+                        import os
                         scenarios = app_instance.get_scenario_files()
+                        # 파일 수정 시간 기준으로 최신순 정렬 (역순)
+                        scenario_paths = []
+                        for scenario_name in scenarios:
+                            scenario_path = config.SCENARIOS_DIR / f"{scenario_name}.json"
+                            if scenario_path.exists():
+                                mtime = os.path.getmtime(scenario_path)
+                                scenario_paths.append((mtime, scenario_name))
+                        scenario_paths.sort(reverse=True)
+                        scenarios = [name for _, name in scenario_paths]
+                        
                         if evt.index >= len(scenarios):
                             return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip()
                         
@@ -1145,33 +1259,33 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     openrouter_api_key = app_instance._load_openrouter_api_key()
                     
                     llm_provider = gr.Radio(
-                        label="LLM Provider",
+                        label=i18n.get_text("llm_provider"),
                         choices=["ollama", "openrouter"],
                         value=provider,
-                        info="사용할 LLM 서비스 선택"
+                        info=i18n.get_text("llm_provider_info")
                     )
                     
                     with gr.Group(visible=(provider == "ollama")) as ollama_group:
                         ollama_model_input = gr.Textbox(
-                            label="Ollama 모델 이름",
+                            label=i18n.get_text("ollama_model"),
                             value=ollama_model,
-                            placeholder="예: kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
-                            info="'ollama list' 명령으로 확인한 정확한 모델 이름을 입력하세요"
+                            placeholder=i18n.get_text("ollama_model_placeholder"),
+                            info=i18n.get_text("ollama_model_info")
                         )
                     
                     with gr.Group(visible=(provider == "openrouter")) as openrouter_group:
                         openrouter_api_key_input = gr.Textbox(
-                            label="OpenRouter API 키",
+                            label=i18n.get_text("openrouter_api_key"),
                             value=openrouter_api_key,
-                            placeholder="sk-or-v1-...",
+                            placeholder=i18n.get_text("openrouter_api_key_placeholder"),
                             type="password",
-                            info="OpenRouter API 키를 입력하세요 (https://openrouter.ai/keys)"
+                            info=i18n.get_text("openrouter_api_key_info")
                         )
                         openrouter_model_input = gr.Textbox(
-                            label="OpenRouter 모델",
+                            label=i18n.get_text("openrouter_model"),
                             value=openrouter_model,
-                            placeholder="예: cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-                            info="OpenRouter에서 사용할 모델 이름"
+                            placeholder=i18n.get_text("openrouter_model_placeholder"),
+                            info=i18n.get_text("openrouter_model_info")
                         )
                     
                     # Provider 변경 시 UI 표시/숨김
@@ -1188,7 +1302,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     )
                     
                     settings_status = gr.Markdown("")
-                    save_settings_btn = gr.Button("💾 설정 저장", variant="primary")
+                    save_settings_btn = gr.Button(i18n.get_text("btn_save_settings"), variant="primary")
                     
                     def save_llm_settings(provider_val, ollama_model_val, openrouter_key_val, openrouter_model_val):
                         """LLM 설정 저장"""
@@ -1198,7 +1312,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             # OpenRouter API 키는 별도 파일에 저장
                             if provider_val == "openrouter" and openrouter_key_val:
                                 if not app_instance._save_openrouter_api_key(openrouter_key_val):
-                                    return "❌ OpenRouter API 키 저장 실패"
+                                    return i18n.get_text("msg_openrouter_api_key_save_failed")
                             
                             # LLM 설정 업데이트 (API 키는 제외)
                             env_config["llm_settings"] = {
@@ -1236,26 +1350,26 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                             )
                                             result = app_instance.brain.memory_manager.load_model()
                                             if result is None:
-                                                return "⚠️ OpenRouter 연결 실패, Ollama로 폴백 시도했으나 Ollama도 연결 실패했습니다."
+                                                return i18n.get_text("msg_openrouter_fallback_failed")
                                             # 폴백 설정 저장
                                             app_instance.save_env_config(env_config)
-                                            return "⚠️ OpenRouter 연결 실패, Ollama로 폴백하여 설정 저장 완료."
+                                            return i18n.get_text("msg_openrouter_fallback_success")
                                         
                                         app_instance.model_loaded = (result is not None)
                                         if app_instance.model_loaded:
-                                            return f"✅ 설정 저장 완료! ({llm_settings['provider'].upper()} 연결 성공)"
+                                            return i18n.get_text("msg_settings_saved_with_provider", provider=llm_settings['provider'].upper())
                                         else:
-                                            return f"⚠️ 설정 저장 완료, 하지만 {llm_settings['provider'].upper()} 연결 실패"
+                                            return i18n.get_text("msg_settings_saved_but_connection_failed", provider=llm_settings['provider'].upper())
                                     else:
-                                        return "✅ 설정 저장 완료! (다음 시작 시 적용됩니다)"
+                                        return i18n.get_text("msg_settings_saved_next_start")
                                 except Exception as e:
                                     logger.error(f"Failed to reinitialize Brain: {e}")
-                                    return f"✅ 설정 저장 완료, 하지만 모델 재연결 실패: {str(e)}"
+                                    return i18n.get_text("msg_settings_saved_reconnect_failed", error=str(e))
                             else:
-                                return "❌ 설정 저장 실패"
+                                return i18n.get_text("msg_settings_save_failed", error="")
                         except Exception as e:
                             logger.error(f"Failed to save LLM settings: {e}")
-                            return f"❌ 설정 저장 실패: {str(e)}"
+                            return i18n.get_text("msg_settings_save_failed", error=f": {str(e)}")
                     
                     save_settings_btn.click(
                         save_llm_settings,
@@ -1295,72 +1409,72 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     with gr.Row():
                         with gr.Column():
                             comfyui_port_input = gr.Number(
-                                label="ComfyUI 서버 포트",
+                                label=i18n.get_text("comfyui_port"),
                                 value=comfyui_port,
                                 minimum=1,
                                 maximum=65535,
                                 step=1,
-                                info="ComfyUI 서버가 실행 중인 포트 번호 (기본값: 8000)"
+                                info=i18n.get_text("comfyui_port_info")
                             )
                             with gr.Row():
                                 comfyui_workflow_input = gr.Dropdown(
-                                    label="워크플로우 파일",
+                                    label=i18n.get_text("comfyui_workflow"),
                                     value=current_workflow,
                                     choices=workflow_files,
-                                    info="workflows 폴더에서 사용할 워크플로우 파일 선택",
+                                    info=i18n.get_text("comfyui_workflow_info"),
                                     scale=4
                                 )
-                                reload_workflow_btn = gr.Button("🔄 새로고침", variant="secondary", size="sm", scale=1)
+                                reload_workflow_btn = gr.Button(i18n.get_text("btn_reload"), variant="secondary", size="sm", scale=1)
                             comfyui_model_input = gr.Textbox(
-                                label="ComfyUI 모델 이름",
+                                label=i18n.get_text("comfyui_model"),
                                 value=comfyui_model,
-                                placeholder="예: Zeniji_mix_ZiT_v1.safetensors",
-                                info="ComfyUI에서 사용할 모델 파일 이름 (확장자 포함)"
+                                placeholder=i18n.get_text("comfyui_model_placeholder"),
+                                info=i18n.get_text("comfyui_model_info")
                             )
                             comfyui_vae_input = gr.Textbox(
-                                label="VAE 이름",
+                                label=i18n.get_text("comfyui_vae"),
                                 value=comfyui_vae,
-                                placeholder="예: zImage_vae.safetensors",
-                                info="ComfyUI에서 사용할 VAE 파일 이름 (확장자 포함)"
+                                placeholder=i18n.get_text("comfyui_vae_placeholder"),
+                                info=i18n.get_text("comfyui_vae_info")
                             )
                             comfyui_clip_input = gr.Textbox(
-                                label="CLIP 이름",
+                                label=i18n.get_text("comfyui_clip"),
                                 value=comfyui_clip,
-                                placeholder="예: zImage_textEncoder.safetensors",
-                                info="ComfyUI에서 사용할 CLIP 파일 이름 (확장자 포함)"
+                                placeholder=i18n.get_text("comfyui_clip_placeholder"),
+                                info=i18n.get_text("comfyui_clip_info")
                             )
                         with gr.Column():
                             comfyui_steps_input = gr.Number(
-                                label="Steps (생성 단계 수)",
+                                label=i18n.get_text("comfyui_steps"),
                                 value=comfyui_steps,
                                 minimum=1,
                                 maximum=100,
                                 step=1,
-                                info="이미지 생성 단계 수 (기본값: 9)"
+                                info=i18n.get_text("comfyui_steps_info")
                             )
                             comfyui_cfg_input = gr.Number(
-                                label="CFG Scale (프롬프트 강도)",
+                                label=i18n.get_text("comfyui_cfg"),
                                 value=comfyui_cfg,
                                 minimum=0.1,
                                 maximum=20.0,
                                 step=0.1,
-                                info="프롬프트 준수도 (기본값: 1)"
+                                info=i18n.get_text("comfyui_cfg_info")
                             )
                             comfyui_sampler_input = gr.Textbox(
-                                label="Sampler (샘플러)",
+                                label=i18n.get_text("comfyui_sampler"),
                                 value=comfyui_sampler,
-                                placeholder="예: euler",
-                                info="이미지 생성 샘플러 이름 (기본값: euler)"
+                                placeholder=i18n.get_text("comfyui_sampler_placeholder"),
+                                info=i18n.get_text("comfyui_sampler_info")
                             )
                             comfyui_scheduler_input = gr.Textbox(
-                                label="Scheduler (스케줄러)",
+                                label=i18n.get_text("comfyui_scheduler"),
                                 value=comfyui_scheduler,
-                                placeholder="예: simple",
-                                info="스케줄러 타입 (기본값: simple)"
+                                placeholder=i18n.get_text("comfyui_scheduler_placeholder"),
+                                info=i18n.get_text("comfyui_scheduler_info")
                             )
                     
                     comfyui_status = gr.Markdown("")
-                    save_comfyui_btn = gr.Button("💾 ComfyUI 설정 저장", variant="primary")
+                    save_comfyui_btn = gr.Button(i18n.get_text("btn_save_comfyui"), variant="primary")
                     
                     def save_comfyui_settings(port_val, workflow_val, model_val, vae_val, clip_val, steps_val, cfg_val, sampler_val, scheduler_val):
                         """ComfyUI 설정 저장"""
@@ -1414,15 +1528,15 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                             clip_name=clip_name
                                         )
                                         logger.info(f"ComfyClient 재초기화 완료: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
-                                    return "✅ ComfyUI 설정 저장 완료! (다음 이미지 생성 시 적용됩니다)"
+                                    return i18n.get_text("msg_comfyui_settings_saved")
                                 except Exception as e:
                                     logger.error(f"Failed to reinitialize ComfyClient: {e}")
-                                    return f"✅ ComfyUI 설정 저장 완료, 하지만 클라이언트 재연결 실패: {str(e)}"
+                                    return i18n.get_text("msg_comfyui_settings_saved_reconnect_failed", error=str(e))
                             else:
-                                return "❌ ComfyUI 설정 저장 실패"
+                                return i18n.get_text("msg_comfyui_settings_save_failed", error="")
                         except Exception as e:
                             logger.error(f"Failed to save ComfyUI settings: {e}")
-                            return f"❌ ComfyUI 설정 저장 실패: {str(e)}"
+                            return i18n.get_text("msg_comfyui_settings_save_failed", error=f": {str(e)}")
                     
                     save_comfyui_btn.click(
                         save_comfyui_settings,

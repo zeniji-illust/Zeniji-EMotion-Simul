@@ -6,7 +6,7 @@ Zeniji Emotion Simul - Brain (The Director)
 import json
 import re
 import logging
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 from state_manager import CharacterState, DialogueHistory, DialogueTurn
 import config
 from logic_engine import (
@@ -54,15 +54,8 @@ class Brain:
             logger.info(f"Status transition: {self.state.relationship_status} -> {new_status}")
             self.state.relationship_status = new_status
         
-        # 2. LLM 호출 (첫 턴도 포함) - 장기 기억 업데이트 포함
-        llm_response, long_memory_summary = self._call_llm(player_input)
-        
-        # 장기 기억 업데이트 (LLM이 제공한 경우)
-        if long_memory_summary:
-            logger.info(f"장기 기억 업데이트됨 (이전 길이: {len(self.state.long_memory) if self.state.long_memory else 0}, 새 길이: {len(long_memory_summary)}): {long_memory_summary[:100]}...")
-            self.state.long_memory = long_memory_summary
-        else:
-            logger.debug(f"장기 기억 업데이트 없음 (현재 long_memory 길이: {len(self.state.long_memory) if self.state.long_memory else 0})")
+        # 2. LLM 호출 (첫 턴도 포함) - 메인 응답 생성
+        llm_response = self._call_llm(player_input)
         
         # Ollama 원본 응답 로그 출력 (dev_mode일 때만)
         if self.dev_mode:
@@ -188,8 +181,16 @@ class Brain:
             logger.error(f"History.turns type: {type(self.history.turns) if hasattr(self.history, 'turns') else 'N/A'}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
             # 히스토리 추가 실패해도 계속 진행
+
+        # 10. 장기 기억 업데이트 (10턴마다 한 번, 기존 long_memory + 최근 히스토리 기반)
+        try:
+            self._update_long_memory_if_needed()
+        except Exception as e:
+            import traceback
+            logger.error(f"Failed to update long-term memory: {e}")
+            logger.error(traceback.format_exc())
         
-        # 10. 응답 조립
+        # 11. 응답 조립
         response = {
             "thought": data.get("thought", ""),
             "speech": data.get("speech", ""),
@@ -224,8 +225,8 @@ class Brain:
         
         return response
     
-    def _call_llm(self, player_input: str) -> Tuple[str, str]:
-        """LLM 호출 (Ollama API) - 응답과 장기 기억 요약을 함께 반환"""
+    def _call_llm(self, player_input: str) -> str:
+        """LLM 호출 (Ollama API) - 메인 응답만 반환 (장기 기억은 별도 갱신)"""
         result = self.memory_manager.get_model()
         if result is None:
             error_msg = (
@@ -237,7 +238,7 @@ class Brain:
             )
             raise RuntimeError(error_msg)
         
-        # 프롬프트 조립 (장기 기억 업데이트 지시 포함)
+        # 프롬프트 조립 (메인 응답용)
         prompt = self._build_prompt(player_input)
         
         # 시스템 프롬프트 로그 출력 (dev_mode일 때만)
@@ -250,7 +251,7 @@ class Brain:
         
         logger.info("Calling LLM API...")
         try:
-            # Ollama API 호출 (장기 기억 업데이트 포함)
+            # Ollama API 호출 (메인 응답)
             response_text = self.memory_manager.generate(
                 prompt,
                 temperature=config.LLM_CONFIG["temperature"],
@@ -260,26 +261,89 @@ class Brain:
             
             if not response_text or not response_text.strip():
                 raise ValueError("Ollama returned empty response")
-            
-            # JSON 파싱하여 장기 기억 추출
-            long_memory_summary = ""
-            try:
-                parsed_data = self._parse_json(response_text)
-                long_memory_summary = parsed_data.get("long_memory_summary", "").strip()
-                if long_memory_summary:
-                    # 500자 제한
-                    long_memory_summary = long_memory_summary[:500]
-                    logger.info(f"장기 기억 업데이트: {long_memory_summary[:50]}...")
-            except Exception as e:
-                logger.warning(f"장기 기억 추출 실패 (계속 진행): {e}")
-                # 장기 기억 추출 실패해도 응답은 계속 진행
-            
-            return response_text, long_memory_summary
+
+            return response_text
         except Exception as e:
             logger.error(f"Ollama API call failed: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            raise RuntimeError(f"Ollama API 호출 실패: {e}")
+        raise RuntimeError(f"Ollama API 호출 실패: {e}")
+
+    def _update_long_memory_if_needed(self):
+        """
+        장기 기억 업데이트 (10턴마다 1번)
+        - 기존 long_memory + 최근 히스토리를 기반으로 LLM에 500자 이내 요약을 요청
+        """
+        # 10턴마다만 갱신 (0턴은 제외)
+        if self.state.total_turns <= 0 or self.state.total_turns % 10 != 0:
+            return
+
+        # 모델 확인
+        result = self.memory_manager.get_model()
+        if result is None:
+            logger.warning("long_memory 업데이트를 위해 모델을 불러올 수 없습니다. (건너뜀)")
+            return
+
+        i18n = get_i18n()
+        i18n.set_language(self.language)
+
+        # 기존 장기 기억 (없으면 기본 문구)
+        existing_memory = self.state.long_memory if self.state.long_memory else i18n.get_default("no_memory")
+
+        # 최근 히스토리 (DialogueHistory는 이미 max_turns=10이므로, format_for_prompt로 충분)
+        history_text = self.history.format_for_prompt()
+
+        # 장기 기억 요약 전용 프롬프트 구성 (언어별 i18n 활용)
+        prompt = f"""{i18n.get_prompt("long_memory_update_title")}
+
+{i18n.get_prompt("long_memory_update_instruction")}
+{i18n.get_prompt("long_memory_update_focus")}
+{i18n.get_prompt("long_memory_update_keep")}
+{i18n.get_prompt("long_memory_update_combine")}
+
+{i18n.get_prompt("long_memory_existing", existing_memory=existing_memory)}
+
+{i18n.get_prompt("data_context_history")}
+{history_text}
+
+JSON:
+{{
+{i18n.get_prompt("output_long_memory")}
+}}
+"""
+
+        logger.info(f"🔁 Updating long-term memory (turn={self.state.total_turns})")
+
+        try:
+            response_text = self.memory_manager.generate(
+                prompt,
+                temperature=config.LLM_CONFIG["temperature"],
+                top_p=config.LLM_CONFIG["top_p"],
+                max_tokens=config.LLM_CONFIG["max_tokens"]
+            )
+
+            if not response_text or not response_text.strip():
+                logger.warning("long_memory 업데이트 LLM 응답이 비어 있습니다. (건너뜀)")
+                return
+
+            # JSON 파싱 후 long_memory_summary 추출
+            try:
+                parsed = self._parse_json(response_text)
+                new_summary = parsed.get("long_memory_summary", "").strip()
+                if new_summary:
+                    # 500자 제한
+                    new_summary = new_summary[:500]
+                    prev_len = len(self.state.long_memory) if self.state.long_memory else 0
+                    logger.info(f"장기 기억 갱신 완료 (이전 길이: {prev_len}, 새 길이: {len(new_summary)}): {new_summary[:100]}...")
+                    self.state.long_memory = new_summary
+                else:
+                    logger.warning("long_memory_summary 필드가 비어 있거나 없습니다. (건너뜀)")
+            except Exception as e:
+                logger.warning(f"long_memory 업데이트 JSON 파싱 실패 (계속 진행): {e}")
+        except Exception as e:
+            logger.error(f"long_memory 업데이트 LLM 호출 실패: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def _build_prompt(self, player_input: str) -> str:
         """시스템 프롬프트 조립 (다국어 지원)"""

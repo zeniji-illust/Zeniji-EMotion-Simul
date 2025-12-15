@@ -104,9 +104,9 @@ class UIComponents:
         
         if event_type == "badge":
             message = f"<strong>{event_data.get('badge_name', '')}</strong> 뱃지를 획득했습니다!"
-        elif event_type in ["Lover", "Partner", "fiancee", "Tempted", "slave", "master"]:
+        elif isinstance(event_type, str) and event_type.lower() in ["lover", "partner", "fiancee", "tempted", "slave", "master"]:
             message = f"관계가 <strong>{event_data.get('new_status', event_type)}</strong>로 발전했습니다!"
-        elif event_type in ["Divorce", "breakup"]:
+        elif isinstance(event_type, str) and event_type.lower() in ["divorce", "breakup"]:
             message = f"관계가 <strong>{event_data.get('new_status', event_type)}</strong>로 변경되었습니다."
         else:
             message = event_data.get('message', '특별한 이벤트가 발생했습니다!')

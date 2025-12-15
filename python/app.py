@@ -31,7 +31,7 @@ from brain import Brain
 from state_manager import CharacterState
 from comfy_client import ComfyClient
 from memory_manager import MemoryManager
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
 import config
 import plotly.graph_objects as go
@@ -102,6 +102,196 @@ class GameApp:
         """시나리오 데이터를 파일로 저장 (JSON 형식) - 대화 + 상태 정보 포함"""
         return self.config_manager.save_scenario(scenario_data, scenario_name)
     
+    def _overlay_text_on_image(self, image: Image.Image, overlay_text: str) -> Image.Image:
+        """
+        주어진 이미지 하단에 overlay_text를 반투명 박스와 함께 오버레이해서 반환
+        (원본 이미지는 변경하지 않고 새 이미지를 반환)
+        """
+        if not overlay_text:
+            return image
+
+        # RGBA로 변환
+        img = image.convert("RGBA")
+        W, H = img.size
+
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        # 폰트 로드 - Gradio 폰트 스택 순서대로 시도
+        # Gradio font stack: IBM Plex Sans, ui-sans-serif, system-ui, -apple-system, 
+        # BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif
+        try:
+            # 글자 조금 더 크게
+            font_size = max(18, W // 45)
+
+            font = None
+            font_candidates = []
+            
+            import os
+            import platform
+
+            # 1. IBM Plex Sans (Gradio 기본 폰트, 일반적으로 설치되어 있지 않을 수 있음)
+            # Windows Fonts 폴더와 일반 경로 체크
+            if os.name == "nt":
+                windir = os.environ.get("WINDIR", r"C:\Windows")
+                plex_paths = [
+                    os.path.join(windir, "Fonts", "IBMPlexSans-Regular.ttf"),
+                    os.path.join(windir, "Fonts", "IBMPlexSans-Medium.ttf"),
+                ]
+                font_candidates.extend(plex_paths)
+            # Linux/Mac 경로도 시도
+            common_font_paths = [
+                "/usr/share/fonts/truetype/ibm-plex/IBMPlexSans-Regular.ttf",
+                "/usr/share/fonts/truetype/ibm-plex/IBMPlexSans-Medium.ttf",
+                "/Library/Fonts/IBMPlexSans-Regular.ttf",
+                "~/.fonts/IBMPlexSans-Regular.ttf",
+            ]
+            font_candidates.extend(common_font_paths)
+            font_candidates.append("IBMPlexSans-Regular.ttf")  # 시스템 폰트 경로에 있을 수도
+
+            # 2. Segoe UI (Windows 시스템 UI 폰트)
+            if os.name == "nt":
+                windir = os.environ.get("WINDIR", r"C:\Windows")
+                font_candidates.append(os.path.join(windir, "Fonts", "segoeui.ttf"))
+            font_candidates.extend(["segoeui.ttf", "Segoe UI", "segoe ui"])
+
+            # 3. Arial (범용 sans-serif)
+            if os.name == "nt":
+                windir = os.environ.get("WINDIR", r"C:\Windows")
+                font_candidates.append(os.path.join(windir, "Fonts", "arial.ttf"))
+            font_candidates.extend(["arial.ttf", "Arial"])
+
+            # 4. Roboto (Android/Chrome OS)
+            font_candidates.extend(["Roboto-Regular.ttf", "Roboto", "roboto.ttf"])
+
+            # 5. Helvetica Neue (macOS)
+            if platform.system() == "Darwin":
+                font_candidates.extend(["HelveticaNeue.ttc", "Helvetica Neue"])
+
+            # 6. 시스템 기본 sans-serif 폰트들
+            font_candidates.extend(["calibri.ttf", "Calibri", "tahoma.ttf", "Tahoma", "verdana.ttf", "Verdana"])
+
+            # 7. Noto Sans (다국어 지원)
+            font_candidates.extend(["NotoSans-Regular.ttf", "Noto Sans"])
+
+            # 폰트 시도
+            for font_name in font_candidates:
+                try:
+                    # 경로 확장 (~ -> 홈 디렉토리)
+                    if font_name.startswith("~"):
+                        font_name = os.path.expanduser(font_name)
+                    font = ImageFont.truetype(font_name, font_size)
+                    logger.debug(f"Font loaded: {font_name}")
+                    break
+                except Exception:
+                    font = None
+                    continue
+
+            # 폰트를 찾지 못한 경우 폴백
+            if font is None:
+                # Windows 한글 폰트 시도
+                if os.name == "nt":
+                    try:
+                        windir = os.environ.get("WINDIR", r"C:\Windows")
+                        font = ImageFont.truetype(os.path.join(windir, "Fonts", "malgun.ttf"), font_size)
+                        logger.debug("Font fallback: malgun.ttf")
+                    except Exception:
+                        try:
+                            windir = os.environ.get("WINDIR", r"C:\Windows")
+                            font = ImageFont.truetype(os.path.join(windir, "Fonts", "gulim.ttc"), font_size)
+                            logger.debug("Font fallback: gulim.ttc")
+                        except Exception:
+                            font = ImageFont.load_default()
+                            logger.debug("Font fallback: default")
+                else:
+                    font = ImageFont.load_default()
+                    logger.debug("Font fallback: default")
+        except Exception as e:
+            logger.warning(f"Font loading error: {e}, using default")
+            font = ImageFont.load_default()
+
+        # 줄 단위로 나누고, 각 줄을 다시 폭에 맞춰 wrap
+        max_width = int(W * 0.9)
+        wrapped_lines = []
+        for raw_line in overlay_text.split("\n"):
+            line = raw_line.strip()
+            if not line:
+                continue
+            words = line.split()
+            current = ""
+            for w in words:
+                test = (current + " " + w).strip()
+                if draw.textlength(test, font=font) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        wrapped_lines.append(current)
+                    current = w
+            if current:
+                wrapped_lines.append(current)
+
+        if not wrapped_lines:
+            return image
+
+        # 텍스트 높이 계산 (줄 간격을 더 넉넉하게)
+        bbox = font.getbbox("A")
+        base_line_height = bbox[3] - bbox[1]
+        # 줄 간격을 조금 더 크게 (1.5배)
+        line_height = int(base_line_height * 1.5)
+        # 상하 패딩도 약간 증가
+        padding_y = int(base_line_height * 0.9)
+        padding_x = int(font_size * 0.6) if 'font_size' in locals() else 10
+        total_text_h = line_height * len(wrapped_lines) + padding_y * 2
+
+        # 바탕 반투명 박스 (하단)
+        box_y0 = H - total_text_h
+        box_y1 = H
+        draw.rectangle(
+            [(0, box_y0), (W, box_y1)],
+            fill=(0, 0, 0, 170)
+        )
+
+        # 텍스트 중앙 정렬로 그리기
+        y = box_y0 + padding_y
+        for line in wrapped_lines:
+            text_w = draw.textlength(line, font=font)
+            x = (W - text_w) / 2
+            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
+            y += line_height
+
+        return Image.alpha_composite(img, overlay).convert("RGB")
+
+    def _build_overlay_text(self, stats: Dict[str, float], relationship: str, mood: str, badges: list) -> str:
+        """
+        Build overlay text for image.
+        - Do NOT show any raw numerical stats (6-axis values are omitted for clarity).
+        - Relationship: show the current relationship status text as-is (e.g. Lover, Master, Slave, Breakup, Divorce, Tempted, etc).
+        - Mood: show mood text only (no label).
+        - Badges: show badge names only, comma-separated (no label).
+        """
+        # Relationship: show any non-empty relationship status (e.g. Lover, Master, Slave, Breakup, Divorce, Tempted, etc.)
+        relationship_line = relationship.strip() if isinstance(relationship, str) else ""
+
+        # 기분도 라벨 없이 내용만
+        mood_line = mood.strip() if isinstance(mood, str) else ""
+
+        # 뱃지는 이름만 나열 (레이블 없음)
+        badges_line = ""
+        if isinstance(badges, (list, set, tuple)):
+            names = [str(b).strip() for b in badges if str(b).strip()]
+            if names:
+                badges_line = ", ".join(names)
+
+        lines = []
+        if relationship_line:
+            lines.append(relationship_line)
+        if mood_line:
+            lines.append(mood_line)
+        if badges_line:
+            lines.append(badges_line)
+
+        return "\n".join(lines).strip()
+
     def _save_generated_image(self, image: Image.Image, turn_number: Optional[int] = None) -> Optional[str]:
         """
         생성된 이미지를 파일로 저장
@@ -378,8 +568,10 @@ class GameApp:
             relationship_changed = True
             logger.info(f"Relationship changed: {self.previous_relationship} -> {relationship}")
         
-        # 관계 상태가 특정 상태로 변경된 경우
-        if relationship_changed and relationship in ["Lover", "Partner", "Divorce", "Tempted", "slave", "master", "fiancee", "breakup"]:
+        # 관계 상태가 특정 상태로 변경된 경우 (대소문자 구분 없이 비교)
+        relationship_lower = relationship.lower() if relationship else ""
+        trigger_list = ["lover", "partner", "divorce", "tempted", "slave", "master", "fiancee", "breakup"]
+        if relationship_changed and relationship_lower in trigger_list:
             logger.info(f"Creating relationship change notification: {relationship}")
             events_to_show.append((relationship, {
                 "new_status": relationship,
@@ -551,11 +743,11 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                 )
                 
                 if image_bytes:
-                    # PIL Image로 변환
+                    # PIL Image로 변환 (오버레이 없이 원본 그대로 저장)
                     image = Image.open(io.BytesIO(image_bytes))
                     # 현재 이미지로 저장
                     self.current_image = image
-                    # 이미지 파일로 저장
+                    # 원본 이미지를 바로 파일로 저장
                     self._save_generated_image(image, turn_number)
                     # 마지막 이미지 생성 정보 저장 (재시도용)
                     self.last_image_generation_info = {
@@ -609,7 +801,7 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
             )
             
             if image_bytes:
-                # PIL Image로 변환
+                # PIL Image로 변환 (오버레이 없이 원본 그대로)
                 image = Image.open(io.BytesIO(image_bytes))
                 # 현재 이미지로 업데이트
                 self.current_image = image
