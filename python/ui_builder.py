@@ -793,17 +793,19 @@ class UIBuilder:
                     #scenario-gallery img {
                         width: 100% !important;
                         height: auto !important;
-                        max-width: 100% !important;
+                        max-width: 200px !important;  /* 카드가 1개일 때도 일정 크기 이상 커지지 않도록 제한 */
                         aspect-ratio: 3 / 4 !important;  /* 기존 200x267 비율 유지 (세로형) */
                         object-fit: contain !important;
                     }
-                    /* 갤러리 아이템 컨테이너 - 중앙 정렬, 고정 폭 제거 (그리드/뷰포트에 맞춰 자동 배치) */
+                    /* 갤러리 아이템 컨테이너 - 중앙 정렬, 최대 너비 제한 (카드가 적을 때도 일정 크기 유지) */
                     #scenario-gallery .gallery-item {
                         display: flex !important;
                         flex-direction: column !important;
                         align-items: center !important;
                         justify-content: flex-start !important;
                         box-sizing: border-box !important;
+                        max-width: 200px !important;  /* 카드가 1개일 때도 4개 있을 때와 같은 크기로 제한 */
+                        width: 100% !important;  /* 그리드 내에서 반응형으로 조정되되, max-width로 제한 */
                     }
                     /* 제목/캡션 스타일 - 가운데 정렬 및 2줄까지 표시 */
                     #scenario-gallery .gallery-item .caption-label {
