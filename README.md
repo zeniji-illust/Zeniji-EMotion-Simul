@@ -6,16 +6,12 @@ v.1.2 (251214): Added Scenario tab, image saving, context/long-term memory resto
 
 v.1.1 업데이트: 환경 설정 창에서 vae,  text encoders 선택 가능 / 시작 후 이동된 대화 탭에서 입력 창 사라지는 문제 해결 등
 v.1.1: Added VAE and Text Encoder selection in settings; fixed the issue where the input box disappeared in the chat tab after navigation.
+
+
 ----
 
 
 🚀 ZEMS(Zeniji EMotion Simul): 심리 조각 시뮬레이터 안내
-
-.
-
-** 현재는 한국어(Korean)만 지원합니다.**
-
-Currently, only Korean is supported.
 
 .
 
@@ -100,7 +96,7 @@ With OpenRouter API, ZEMS runs smoothly on most PCs. We highly recommend using p
 ☕ 후원: buymeacoffee.com/zeniji
 
 
-"그녀의 마음을 조각하세요. 단, 모든 상처는 영원히 남습니다." 
+"그/녀의 마음을 조각하세요. 단, 모든 상처는 영원히 남습니다." 
 
-"Sculpt her mind. But every scar lasts forever."
+"Sculpt his/her mind. But every scar lasts forever."
 
