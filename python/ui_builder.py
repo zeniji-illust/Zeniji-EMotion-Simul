@@ -8,9 +8,12 @@ from pathlib import Path
 import config
 from comfy_client import ComfyClient
 from memory_manager import MemoryManager
-from i18n import get_i18n, set_global_language
+from i18n import get_i18n, set_global_language, TRANSLATIONS
 
 logger = logging.getLogger("UIBuilder")
+
+# 시나리오 이미지 캐시 (성능 최적화)
+_scenario_image_cache = {}  # {scenario_name: (mtime, resized_image)}
 
 
 class UIBuilder:
@@ -91,6 +94,14 @@ class UIBuilder:
                         lines=3,
                         max_lines=5
                     )
+                    speech_style = gr.Textbox(
+                        label=i18n.get_text("character_speech_style_label"),
+                        value=saved_config["character"].get("speech_style", i18n.get_default("character_speech_style")),
+                        placeholder=i18n.get_text("character_speech_style_placeholder"),
+                        info=i18n.get_text("character_speech_style_info"),
+                        lines=2,
+                        max_lines=4
+                    )
                     
                     gr.Markdown(f"### {i18n.get_text('stats_title')}")
                     gr.Markdown(i18n.get_text("stats_info"))
@@ -167,8 +178,19 @@ class UIBuilder:
                     
                     gr.Markdown(f"### {i18n.get_text('presets')}")
                     with gr.Row():
+                        # preset 이름과 i18n 키 매핑 (현재 언어만 표시)
+                        preset_i18n_keys = {
+                            "소꿉친구": "preset_childhood_friend",
+                            "혐관 라이벌": "preset_hostile_rival",
+                            "피폐/집착": "preset_obsessive_depraved",
+                        }
                         for preset_name in config.PRESETS.keys():
-                            preset_btn = gr.Button(preset_name, variant="secondary")
+                            if preset_name in preset_i18n_keys:
+                                i18n_key = preset_i18n_keys[preset_name]
+                                display_name = i18n.get_text(i18n_key)
+                            else:
+                                display_name = preset_name
+                            preset_btn = gr.Button(display_name, variant="secondary")
                             # lambda 클로저 문제 해결 및 fn 명시
                             def make_preset_handler(name):
                                 def handler():
@@ -177,7 +199,7 @@ class UIBuilder:
                             preset_btn.click(
                                 fn=make_preset_handler(preset_name),
                                 inputs=[],
-                                outputs=[p_val, a_val, d_val, i_val, t_val, dep_val, appearance, personality]
+                                outputs=[p_val, a_val, d_val, i_val, t_val, dep_val, appearance, personality, speech_style]
                             )
                     
                     gr.Markdown(f"### {i18n.get_text('initial_situation')}")
@@ -230,7 +252,7 @@ class UIBuilder:
                     def load_character(selected_file):
                         """캐릭터 파일 불러오기"""
                         if not selected_file:
-                            return i18n.get_text("msg_file_not_selected"), *([gr.update()] * 12)
+                            return i18n.get_text("msg_file_not_selected"), *([gr.update()] * 16)
                         
                         try:
                             config = app_instance.load_character_config(selected_file)
@@ -245,6 +267,7 @@ class UIBuilder:
                                 config["character"].get("gender", i18n.get_text("female")),
                                 config["character"].get("appearance", ""),
                                 config["character"].get("personality", ""),
+                                config["character"].get("speech_style", i18n.get_default("character_speech_style")),
                                 config["initial_stats"].get("P", 50.0),
                                 config["initial_stats"].get("A", 40.0),
                                 config["initial_stats"].get("D", 40.0),
@@ -256,10 +279,10 @@ class UIBuilder:
                             )
                         except Exception as e:
                             logger.error(f"Failed to load character: {e}")
-                            return i18n.get_text("msg_load_failed", error=str(e)), *([gr.update()] * 12)
+                            return i18n.get_text("msg_load_failed", error=str(e)), *([gr.update()] * 16)
                     
                     def save_character(filename, overwrite, player_name, player_gender, char_name, char_age, char_gender,
-                                     appearance, personality, p_val, a_val, d_val, i_val, t_val, dep_val,
+                                     appearance, personality, speech_style, p_val, a_val, d_val, i_val, t_val, dep_val,
                                      initial_context, initial_background):
                         """캐릭터 설정 저장"""
                         if not filename or not filename.strip():
@@ -287,7 +310,8 @@ class UIBuilder:
                                     "age": int(char_age) if char_age else 21,
                                     "gender": char_gender or i18n.get_text("female"),
                                     "appearance": appearance or "",
-                                    "personality": personality or ""
+                                "personality": personality or "",
+                                "speech_style": speech_style or i18n.get_default("character_speech_style")
                                 },
                                 "initial_stats": {
                                     "P": float(p_val) if p_val is not None else 50.0,
@@ -319,21 +343,6 @@ class UIBuilder:
                         updated_files = app_instance.get_character_files()
                         return gr.Dropdown(choices=updated_files)
                     
-                    def reload_workflow_files(current_value):
-                        """워크플로우 파일 목록 새로고침"""
-                        workflows_dir = config.PROJECT_ROOT / "workflows"
-                        workflow_files = []
-                        if workflows_dir.exists():
-                            workflow_files = sorted([f.name for f in workflows_dir.glob("*.json")])
-                        if not workflow_files:
-                            workflow_files = ["comfyui.json"]  # 기본값
-                        
-                        # 현재 선택된 값이 새 목록에 있으면 유지, 없으면 첫 번째 파일 선택
-                        if current_value and current_value in workflow_files:
-                            return gr.Dropdown(choices=workflow_files, value=current_value)
-                        else:
-                            return gr.Dropdown(choices=workflow_files, value=workflow_files[0] if workflow_files else None)
-                    
                     load_btn.click(
                         load_character,
                         inputs=[character_file_dropdown],
@@ -341,7 +350,7 @@ class UIBuilder:
                             setup_status,
                             player_name, player_gender,
                             char_name, char_age, char_gender,
-                            appearance, personality,
+                            appearance, personality, speech_style,
                             p_val, a_val, d_val, i_val, t_val, dep_val,
                             initial_context, initial_background
                         ]
@@ -354,7 +363,7 @@ class UIBuilder:
                             overwrite_checkbox,
                             player_name, player_gender,
                             char_name, char_age, char_gender,
-                            appearance, personality,
+                            appearance, personality, speech_style,
                             p_val, a_val, d_val, i_val, t_val, dep_val,
                             initial_context, initial_background
                         ],
@@ -605,25 +614,38 @@ class UIBuilder:
                                 from logic_engine import interpret_mood
                                 calculated_mood = interpret_mood(state)
                                 
+                                stats_axis_title = i18n.get_text("stats_axis_title", category="ui")
+                                stats_change_title = i18n.get_text("stats_change_title", category="ui")
+                                relationship_label = i18n.get_text("relationship_label", category="ui")
+                                mood_label = i18n.get_text("mood_label", category="ui")
+                                badge_label = i18n.get_text("badge_label", category="ui")
+                                badge_none = i18n.get_text("badge_none", category="ui")
+                                p_label = i18n.get_text("stat_p_short", category="ui")
+                                a_label = i18n.get_text("stat_a_short", category="ui")
+                                d_label = i18n.get_text("stat_d_short", category="ui")
+                                i_label = i18n.get_text("stat_i_short", category="ui")
+                                t_label = i18n.get_text("stat_t_short", category="ui")
+                                dep_label = i18n.get_text("stat_dep_short", category="ui")
+
                                 stats_text = f"""
 <div style="font-size: 0.85em; color: #666;">
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
 <div>
-<strong>6축 수치:</strong><br>
-P (쾌락): {stats.get('P', 0):.0f}<br>
-A (각성): {stats.get('A', 0):.0f}<br>
-D (지배): {stats.get('D', 0):.0f}<br>
+<strong>{stats_axis_title}:</strong><br>
+{p_label}: {stats.get('P', 0):.0f}<br>
+{a_label}: {stats.get('A', 0):.0f}<br>
+{d_label}: {stats.get('D', 0):.0f}<br>
 </div>
 <div>
-<strong>변화량:</strong><br>
-I (친밀): {stats.get('I', 0):.0f}<br>
-T (신뢰): {stats.get('T', 0):.0f}<br>
-Dep (의존): {stats.get('Dep', 0):.0f}<br>
+<strong>{stats_change_title}:</strong><br>
+{i_label}: {stats.get('I', 0):.0f}<br>
+{t_label}: {stats.get('T', 0):.0f}<br>
+{dep_label}: {stats.get('Dep', 0):.0f}<br>
 </div>
 </div>
 <br>
-<strong>관계:</strong> {state.relationship_status} | <strong>기분:</strong> {calculated_mood}<br>
-<strong>뱃지:</strong> {', '.join(state.badges) or 'None'}
+<strong>{relationship_label}:</strong> {state.relationship_status} | <strong>{mood_label}:</strong> {calculated_mood}<br>
+<strong>{badge_label}:</strong> {', '.join(state.badges) or badge_none}
 </div>
 """
                             else:
@@ -677,9 +699,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     placeholder_img = create_placeholder_image()
                     
                     def get_scenario_gallery_items():
-                        """시나리오 갤러리 아이템 생성 (동적 업데이트 가능)"""
+                        """시나리오 갤러리 아이템 생성 (동적 업데이트 가능, 캐싱 적용)"""
                         from PIL import Image
                         import os
+                        global _scenario_image_cache
+                        
                         scenarios = app_instance.get_scenario_files()
                         
                         # 파일 수정 시간 기준으로 최신순 정렬 (역순)
@@ -700,23 +724,55 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         target_width = 200
                         target_height = int(target_width * 4 / 3)  # 267
                         
+                        # 플레이스홀더는 이미 올바른 크기로 생성되어 있으므로 캐싱만 수행
+                        if 'placeholder' not in _scenario_image_cache:
+                            _scenario_image_cache['placeholder'] = (0, placeholder_img)
+                        
                         for scenario_name in scenarios:  # 전체 시나리오 표시
                             image_path = config.SCENARIOS_DIR / f"{scenario_name}.png"
+                            
+                            # 캐시 확인
+                            cache_key = scenario_name
+                            use_cache = False
+                            resized_img = None
+                            
                             if image_path.exists():
                                 try:
-                                    # 이미지를 4:3 비율로 리사이즈
-                                    img = Image.open(image_path)
-                                    img_resized = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-                                    gallery_items.append((img_resized, scenario_name))
+                                    # 이미지 파일의 수정 시간 확인
+                                    img_mtime = os.path.getmtime(image_path)
+                                    
+                                    # 캐시에 있고 수정 시간이 같으면 캐시 사용
+                                    if cache_key in _scenario_image_cache:
+                                        cached_mtime, cached_img = _scenario_image_cache[cache_key]
+                                        if cached_mtime == img_mtime:
+                                            resized_img = cached_img
+                                            use_cache = True
+                                    
+                                    # 캐시 미스 또는 파일이 변경된 경우 새로 로드 및 리사이즈
+                                    if not use_cache:
+                                        img = Image.open(image_path)
+                                        resized_img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                                        # 캐시에 저장
+                                        _scenario_image_cache[cache_key] = (img_mtime, resized_img)
+                                    
+                                    gallery_items.append((resized_img, scenario_name))
                                 except Exception as e:
                                     logger.warning(f"Failed to load/resize image for {scenario_name}: {e}")
                                     # 실패 시 플레이스홀더 사용
-                                    placeholder_resized = placeholder_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                                    placeholder_resized = _scenario_image_cache['placeholder'][1]
                                     gallery_items.append((placeholder_resized, scenario_name))
                             else:
-                                # 플레이스홀더도 4:3 비율로 리사이즈
-                                placeholder_resized = placeholder_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                                # 이미지가 없으면 플레이스홀더 사용
+                                placeholder_resized = _scenario_image_cache['placeholder'][1]
                                 gallery_items.append((placeholder_resized, scenario_name))
+                        
+                        # 사용하지 않는 캐시 항목 정리 (현재 시나리오 목록에 없는 것들)
+                        current_scenarios = set(scenarios)
+                        keys_to_remove = [key for key in _scenario_image_cache.keys() 
+                                        if key != 'placeholder' and key not in current_scenarios]
+                        for key in keys_to_remove:
+                            del _scenario_image_cache[key]
+                        
                         return gallery_items
                     
                     # 시나리오 갤러리 (동적 업데이트 가능)
@@ -730,26 +786,24 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         allow_preview=False
                     )
                     
-                    # CSS로 이미지 크기 고정
+                    # CSS로 이미지 크기(카드 폭)에 맞춰 동적으로 조절
                     gr.HTML(value="""
                     <style>
-                    /* 이미지 스타일 */
+                    /* 시나리오 갤러리 이미지: 카드 폭에 맞춰 반응형으로 축소/확대 (3:4 비율 유지) */
                     #scenario-gallery img {
-                        max-width: 200px !important;
-                        max-height: 267px !important;
-                        width: 200px !important;
-                        height: 267px !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        max-width: 100% !important;
+                        aspect-ratio: 3 / 4 !important;  /* 기존 200x267 비율 유지 (세로형) */
                         object-fit: contain !important;
                     }
-                    /* 갤러리 아이템 컨테이너 - 중앙 정렬 */
+                    /* 갤러리 아이템 컨테이너 - 중앙 정렬, 고정 폭 제거 (그리드/뷰포트에 맞춰 자동 배치) */
                     #scenario-gallery .gallery-item {
-                        width: 200px !important;
-                        height: auto !important;
-                        min-height: 267px !important;
                         display: flex !important;
                         flex-direction: column !important;
                         align-items: center !important;
                         justify-content: flex-start !important;
+                        box-sizing: border-box !important;
                     }
                     /* 제목/캡션 스타일 - 가운데 정렬 및 2줄까지 표시 */
                     #scenario-gallery .gallery-item .caption-label {
@@ -815,9 +869,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             image_display = gr.Image(label=i18n.get_text("character_image_label"), height=400, show_label=False)
                             retry_image_btn = gr.Button(i18n.get_text("btn_retry_image"), variant="secondary", size="sm", visible=False)
                             save_image_btn = gr.Button(i18n.get_text("btn_save_image"), variant="secondary", size="sm", visible=True)
+                            save_moment_btn = gr.Button(i18n.get_text("btn_save_moment"), variant="secondary", size="sm", visible=True)
                             # 버튼 상태/메시지 표시용
                             retry_image_status = gr.Markdown("", visible=False, elem_id="retry-status")
                             save_image_status = gr.Markdown("", visible=False, elem_id="save-image-status")
+                            save_moment_status = gr.Markdown("", visible=False, elem_id="save-moment-status")
                     
                     # 시나리오 저장 (모든 컴포넌트 아래, 화면 너비 전체 사용)
                     with gr.Row():
@@ -834,8 +890,36 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     image_update_trigger = gr.State(value=None)
                     
                     def on_submit(message, history):
-                        if not app_instance.model_loaded:
-                            # history를 안전하게 리스트로 변환
+                        """메인 대화 처리 핸들러 (로딩 이슈 디버깅용 로그/예외 방어 포함)"""
+                        try:
+                            logger.info(f"[on_submit] called. model_loaded={app_instance.model_loaded}, "
+                                        f"message_preview={str(message)[:50]!r}, "
+                                        f"history_type={type(history).__name__}")
+                            
+                            if not app_instance.model_loaded:
+                                logger.info("[on_submit] model not loaded yet, returning history only.")
+                                # history를 안전하게 리스트로 변환
+                                if history is None:
+                                    history = []
+                                elif isinstance(history, set):
+                                    history = list(history)
+                                elif not isinstance(history, list):
+                                    try:
+                                        history = list(history)
+                                    except (TypeError, ValueError):
+                                        history = []
+                                normalized_history = normalize_chatbot_history(history)
+                                return normalized_history, "", "", "", "", None, None, gr.HTML(value="", visible=False)  # 마지막은 event_notification
+                            
+                            # 이전 차트를 먼저 반환 (로딩 중에도 차트가 보이도록)
+                            # 초기 차트가 없으면 생성
+                            if app_instance.current_chart is None and app_instance.brain is not None:
+                                logger.debug("[on_submit] current_chart is None, creating initial chart.")
+                                stats = app_instance.brain.state.get_stats_dict()
+                                app_instance.current_chart = app_instance.create_radar_chart(stats, {})
+                            previous_chart = app_instance.current_chart if app_instance.current_chart is not None else None
+                            
+                            # history를 안전하게 리스트로 변환 및 정규화
                             if history is None:
                                 history = []
                             elif isinstance(history, set):
@@ -845,55 +929,68 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                     history = list(history)
                                 except (TypeError, ValueError):
                                     history = []
+                            
+                            # 히스토리 정규화
                             normalized_history = normalize_chatbot_history(history)
-                            return normalized_history, "", "", "", "", None, None, gr.HTML(value="", visible=False)  # 마지막은 event_notification
-                        
-                        # 이전 차트를 먼저 반환 (로딩 중에도 차트가 보이도록)
-                        # 초기 차트가 없으면 생성
-                        if app_instance.current_chart is None and app_instance.brain is not None:
-                            stats = app_instance.brain.state.get_stats_dict()
-                            app_instance.current_chart = app_instance.create_radar_chart(stats, {})
-                        previous_chart = app_instance.current_chart if app_instance.current_chart is not None else None
-                        
-                        # history를 안전하게 리스트로 변환 및 정규화
-                        if history is None:
-                            history = []
-                        elif isinstance(history, set):
-                            history = list(history)
-                        elif not isinstance(history, list):
-                            try:
-                                history = list(history)
-                            except (TypeError, ValueError):
-                                history = []
-                        
-                        # 히스토리 정규화
-                        normalized_history = normalize_chatbot_history(history)
-                        
-                        new_history, output, stats, image, choices, thought, action, chart, event_notification = app_instance.process_turn(message, normalized_history)
-                        
-                        # 반환 전에 히스토리 다시 정규화 (안전장치)
-                        normalized_new_history = normalize_chatbot_history(new_history)
-                        
-                        # image가 새로 생성됐으면 trigger에 넣고, 아니면 None
-                        # 차트는 이전 차트를 먼저 반환하고, 새 차트는 나중에 업데이트
-                        # 이벤트 알림이 있으면 표시, 없으면 숨김 (빈 문자열로 초기화)
-                        event_visible = bool(event_notification and event_notification.strip())
-                        event_html = event_notification if event_visible else ""
-                        return normalized_new_history, "", stats, thought, action, image, previous_chart if previous_chart else chart, gr.HTML(value=event_html, visible=event_visible)
+                            logger.debug(f"[on_submit] normalized_history_len={len(normalized_history)}")
+                            
+                            new_history, output, stats, image, choices, thought, action, chart, event_notification = app_instance.process_turn(message, normalized_history)
+                            
+                            # 반환 전에 히스토리 다시 정규화 (안전장치)
+                            normalized_new_history = normalize_chatbot_history(new_history)
+                            
+                            # image가 새로 생성됐으면 trigger에 넣고, 아니면 None
+                            # 차트는 이전 차트를 먼저 반환하고, 새 차트는 나중에 업데이트
+                            # 이벤트 알림이 있으면 표시, 없으면 숨김 (빈 문자열로 초기화)
+                            event_visible = bool(event_notification and event_notification.strip())
+                            event_html = event_notification if event_visible else ""
+                            
+                            logger.info(f"[on_submit] completed. "
+                                        f"stats_keys={list(stats.keys()) if isinstance(stats, dict) else 'N/A'}, "
+                                        f"image_generated={image is not None}, "
+                                        f"event_visible={event_visible}")
+                            
+                            return (
+                                normalized_new_history,
+                                "",
+                                stats,
+                                thought,
+                                action,
+                                image,
+                                previous_chart if previous_chart else chart,
+                                gr.HTML(value=event_html, visible=event_visible),
+                            )
+                        except Exception as e:
+                            import traceback
+                            logger.error(f"[on_submit] ERROR: {e}")
+                            logger.error(traceback.format_exc())
+                            # 예외가 발생하더라도 Gradio 체인이 끝나도록 안전한 기본값 반환
+                            safe_history = normalize_chatbot_history(history or [])
+                            error_html = gr.HTML(
+                                value=f"<div style='color:red;font-size:0.85em;'>⚠️ on_submit 오류: {str(e)}</div>",
+                                visible=True,
+                            )
+                            return safe_history, "", "", "", "", None, None, error_html
                     
                     def update_chart_async(history):
-                        """백그라운드에서 차트 업데이트"""
-                        if not app_instance.model_loaded or not history:
-                            return gr.skip()
-                        
-                        # 마지막 대화에서 stats 추출하여 차트 생성
+                        """백그라운드에서 차트 업데이트 (로딩 이슈 디버깅용 로그 포함)"""
                         try:
-                            # history에서 마지막 응답의 stats 가져오기
+                            logger.debug(f"[update_chart_async] called. model_loaded={app_instance.model_loaded}, "
+                                         f"history_type={type(history).__name__}")
+                            if not app_instance.model_loaded or not history:
+                                logger.debug("[update_chart_async] skipped (model not loaded or empty history).")
+                                return gr.skip()
+                            
+                            # 마지막 대화에서 stats 추출하여 차트 생성
                             # 실제로는 process_turn에서 이미 차트를 생성했으므로 current_chart 사용
                             if app_instance.current_chart is not None:
+                                logger.debug("[update_chart_async] returning current_chart.")
                                 return app_instance.current_chart
-                        except:
-                            pass
+                        except Exception as e:
+                            import traceback
+                            logger.error(f"[update_chart_async] ERROR: {e}")
+                            logger.error(traceback.format_exc())
+                        logger.debug("[update_chart_async] no chart to update, skip.")
                         return gr.skip()
                     
                     def save_scenario_handler(scenario_name, history):
@@ -1020,19 +1117,24 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                     try:
                                         from PIL import Image
                                         scenario_image_path = config.SCENARIOS_DIR / f"{scenario_name_clean}.png"
-                                        app_instance.current_image.save(scenario_image_path, "PNG")
+                                        
+                                        # 이미지 1.5배 리사이즈 (LANCZOS)
+                                        width, height = app_instance.current_image.size
+                                        resized_image = app_instance.current_image.resize((int(width * 1.5), int(height * 1.5)), Image.LANCZOS)
+                                        
+                                        resized_image.save(scenario_image_path, "PNG")
                                         logger.info(f"Scenario image saved to: {scenario_image_path}")
                                     except Exception as e:
                                         logger.warning(f"Failed to save scenario image: {e}")
                                 
-                                return f"✅ {scenario_name_clean}.json 저장 완료! (시나리오 탭에서 확인하세요.)"
+                                return i18n.get_text("msg_scenario_save_success", category="ui", name=scenario_name_clean)
                             else:
-                                return "❌ 시나리오 저장 실패"
+                                return i18n.get_text("msg_scenario_save_failed", category="ui")
                         except Exception as e:
                             logger.error(f"Failed to save scenario: {e}")
                             import traceback
                             logger.error(traceback.format_exc())
-                            return f"❌ 시나리오 저장 실패: {str(e)}"
+                            return i18n.get_text("msg_scenario_save_failed", category="ui")
                     
                     save_scenario_btn.click(
                         save_scenario_handler,
@@ -1047,19 +1149,32 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         return gr.skip()
                     
                     def update_image_if_needed(trigger_image):
-                        """트리거에 이미지가 있을 때만 반환, 없으면 업데이트 안 함"""
-                        if trigger_image is not None:
-                            # 이미지가 있으면 재시도 버튼도 표시
-                            return trigger_image, gr.Button(visible=True)
-                        # 이미지가 없어도 이전 이미지가 있으면 재시도 버튼 표시
-                        if app_instance.current_image is not None:
-                            return gr.skip(), gr.Button(visible=True)
-                        return gr.skip(), gr.Button(visible=False)  # Gradio 6.x: 업데이트 건너뛰기
+                        """트리거에 이미지가 있을 때만 반환, 없으면 업데이트 안 함 (로딩 이슈 디버깅용 로그 포함)"""
+                        try:
+                            logger.debug(f"[update_image_if_needed] called. trigger_image_is_none={trigger_image is None}, "
+                                         f"has_current_image={app_instance.current_image is not None}")
+                            if trigger_image is not None:
+                                logger.debug("[update_image_if_needed] new image provided, showing retry button.")
+                                # 이미지가 있으면 재시도 버튼도 표시
+                                return trigger_image, gr.Button(visible=True)
+                            # 이미지가 없어도 이전 이미지가 있으면 재시도 버튼 표시
+                            if app_instance.current_image is not None:
+                                logger.debug("[update_image_if_needed] no new image, but current_image exists -> show retry.")
+                                return gr.skip(), gr.Button(visible=True)
+                            logger.debug("[update_image_if_needed] no image at all -> hide retry.")
+                            return gr.skip(), gr.Button(visible=False)  # Gradio 6.x: 업데이트 건너뛰기
+                        except Exception as e:
+                            import traceback
+                            logger.error(f"[update_image_if_needed] ERROR: {e}")
+                            logger.error(traceback.format_exc())
+                            # 실패 시에도 체인을 끊지 않도록 기본 동작 반환
+                            return gr.skip(), gr.Button(visible=bool(app_instance.current_image is not None))
                     
                     def retry_image_handler():
                         """이미지 재생성 핸들러"""
                         if not app_instance.last_image_generation_info:
-                            return gr.skip(), gr.Markdown(value="⚠️ 재생성할 이미지 정보가 없습니다.", visible=True), gr.Button(visible=True)
+                            msg = i18n.get_text("retry_no_image", category="ui")
+                            return gr.skip(), gr.Markdown(value=msg, visible=True), gr.Button(visible=True)
                         
                         try:
                             image, status_msg = app_instance.retry_image_generation()
@@ -1069,51 +1184,55 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 return gr.skip(), gr.Markdown(value=status_msg, visible=True), gr.Button(visible=True)
                         except Exception as e:
                             logger.error(f"Failed to retry image generation: {e}")
-                            return gr.skip(), gr.Markdown(value=f"❌ 오류: {str(e)}", visible=True), gr.Button(visible=True)
+                            err = i18n.get_text("retry_error", category="ui", error=str(e))
+                            return gr.skip(), gr.Markdown(value=err, visible=True), gr.Button(visible=True)
                     
                     def save_current_image_handler():
-                        """현재 표시된 이미지를 기반으로 오버레이 텍스트를 생성해 image 폴더에 저장"""
+                        """현재 표시된 이미지를 그대로 image 폴더에 저장 (텍스트 오버레이 없음)"""
                         if app_instance.current_image is None:
-                            return gr.Markdown(value="⚠️ 저장할 이미지가 없습니다.", visible=True)
+                            msg = i18n.get_text("save_image_no_image", category="ui")
+                            return gr.Markdown(value=msg, visible=True)
                         
                         try:
-                            # 상태 정보에서 오버레이 텍스트 구성
+                            # 상태와 상관없이 현재 이미지를 그대로 저장 (오버레이 없음)
                             if app_instance.brain is not None and app_instance.brain.state is not None:
                                 state = app_instance.brain.state
-                                stats = state.get_stats_dict()
-                                from logic_engine import interpret_mood
-                                calculated_mood = interpret_mood(state)
-                                badges_for_overlay = list(getattr(state, "badges", []))
-                                relationship = getattr(state, "relationship_status", "")
-                                overlay_text = app_instance._build_overlay_text(
-                                    stats=stats or {},
-                                    relationship=relationship,
-                                    mood=calculated_mood,
-                                    badges=badges_for_overlay,
-                                )
-                                image_to_save = app_instance.current_image
-                                if overlay_text:
-                                    image_to_save = app_instance._overlay_text_on_image(image_to_save, overlay_text)
-
-                                # 턴 번호 사용 (있으면)
                                 turn_number = getattr(state, "total_turns", None)
-                                saved_path = app_instance._save_generated_image(image_to_save, turn_number)
-                                if saved_path:
-                                    return gr.Markdown(value=f"✅ 이미지 저장 완료: {saved_path}", visible=True)
-                                else:
-                                    return gr.Markdown(value="❌ 이미지 저장에 실패했습니다.", visible=True)
                             else:
-                                # 상태가 없으면 그냥 현재 이미지만 저장 (오버레이 없이)
-                                saved_path = app_instance._save_generated_image(app_instance.current_image, None)
-                                if saved_path:
-                                    return gr.Markdown(value=f"✅ 이미지 저장 완료: {saved_path}", visible=True)
-                                else:
-                                    return gr.Markdown(value="❌ 이미지 저장에 실패했습니다.", visible=True)
+                                turn_number = None
+
+                            saved_path = app_instance._save_generated_image(app_instance.current_image, turn_number)
+                            if saved_path:
+                                msg = i18n.get_text("save_image_success", category="ui", path=saved_path)
+                                return gr.Markdown(value=msg, visible=True)
+                            else:
+                                msg = i18n.get_text("save_image_fail", category="ui")
+                                return gr.Markdown(value=msg, visible=True)
                         except Exception as e:
                             logger.error(f"Failed to save current image with overlay: {e}")
                             import traceback
                             logger.error(traceback.format_exc())
-                            return gr.Markdown(value=f"❌ 이미지 저장 중 오류: {str(e)}", visible=True)
+                            msg = i18n.get_text("save_image_error", category="ui", error=str(e))
+                            return gr.Markdown(value=msg, visible=True)
+
+                    def save_moment_image_handler():
+                        """현재 이미지를 2배 확대 + 대사/속마음/행동/상태 오버레이로 저장"""
+                        if app_instance.current_image is None:
+                            msg = i18n.get_text("save_image_no_image", category="ui")
+                            return gr.Markdown(value=msg, visible=True)
+                        try:
+                            saved_path = app_instance.save_moment_image()
+                            if saved_path:
+                                msg = i18n.get_text("save_moment_success", category="ui", path=saved_path)
+                                return gr.Markdown(value=msg, visible=True)
+                            msg = i18n.get_text("save_moment_fail", category="ui")
+                            return gr.Markdown(value=msg, visible=True)
+                        except Exception as e:
+                            logger.error(f"Failed to save moment image: {e}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            msg = i18n.get_text("save_moment_error", category="ui", error=str(e))
+                            return gr.Markdown(value=msg, visible=True)
 
                     # 메인 submit - 이미지와 차트는 비동기로 업데이트
                     submit_btn.click(
@@ -1143,7 +1262,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         inputs=[chatbot],
                         outputs=[stats_chart]
                     )
-                    
+
                     # 재시도 버튼 클릭 핸들러
                     retry_image_btn.click(
                         retry_image_handler,
@@ -1156,6 +1275,13 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                         save_current_image_handler,
                         inputs=[],
                         outputs=[save_image_status]
+                    )
+                    
+                    # 순간 저장 버튼 클릭 핸들러
+                    save_moment_btn.click(
+                        save_moment_image_handler,
+                        inputs=[],
+                        outputs=[save_moment_status]
                     )
                     
                     # 시나리오 갤러리 선택 이벤트 연결 (대화 탭 컴포넌트 정의 이후)
@@ -1212,7 +1338,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     )
                     
                 
-                # ========== 탭 3: 환경설정 ==========
+                # ========== 탭 4: 환경설정 ==========
                 with gr.Tab(i18n.get_text("tab_settings"), id="settings_tab"):
                     # 언어 설정 섹션 (최상단)
                     gr.Markdown(f"## {i18n.get_text('language_settings')}")
@@ -1255,6 +1381,11 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     provider = llm_settings.get("provider", "ollama")
                     ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
                     openrouter_model = llm_settings.get("openrouter_model", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free")
+                    llm_temperature = float(llm_settings.get("temperature", config.LLM_CONFIG["temperature"]))
+                    llm_top_p = float(llm_settings.get("top_p", config.LLM_CONFIG["top_p"]))
+                    llm_max_tokens = int(llm_settings.get("max_tokens", config.LLM_CONFIG["max_tokens"]))
+                    llm_presence_penalty = float(llm_settings.get("presence_penalty", config.LLM_CONFIG["presence_penalty"]))
+                    llm_frequency_penalty = float(llm_settings.get("frequency_penalty", config.LLM_CONFIG["frequency_penalty"]))
                     # API 키는 파일에서 불러오기
                     openrouter_api_key = app_instance._load_openrouter_api_key()
                     
@@ -1288,6 +1419,50 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             info=i18n.get_text("openrouter_model_info")
                         )
                     
+                    # 공통 LLM 파라미터 (ollama/openrouter 공통)
+                    with gr.Row():
+                        temperature_input = gr.Number(
+                            label=i18n.get_text("llm_temperature"),
+                            value=llm_temperature,
+                            minimum=0.0,
+                            maximum=2.0,
+                            step=0.05,
+                            info=i18n.get_text("llm_temperature_info")
+                        )
+                        top_p_input = gr.Number(
+                            label=i18n.get_text("llm_top_p"),
+                            value=llm_top_p,
+                            minimum=0.0,
+                            maximum=1.0,
+                            step=0.01,
+                            info=i18n.get_text("llm_top_p_info")
+                        )
+                    with gr.Row():
+                        max_tokens_input = gr.Number(
+                            label=i18n.get_text("llm_max_tokens"),
+                            value=llm_max_tokens,
+                            minimum=1,
+                            maximum=4000,
+                            step=50,
+                            info=i18n.get_text("llm_max_tokens_info")
+                        )
+                        presence_penalty_input = gr.Number(
+                            label=i18n.get_text("llm_presence_penalty"),
+                            value=llm_presence_penalty,
+                            minimum=-2.0,
+                            maximum=2.0,
+                            step=0.05,
+                            info=i18n.get_text("llm_presence_penalty_info")
+                        )
+                        frequency_penalty_input = gr.Number(
+                            label=i18n.get_text("llm_frequency_penalty"),
+                            value=llm_frequency_penalty,
+                            minimum=-2.0,
+                            maximum=2.0,
+                            step=0.05,
+                            info=i18n.get_text("llm_frequency_penalty_info")
+                        )
+
                     # Provider 변경 시 UI 표시/숨김
                     def update_provider_ui(selected_provider):
                         return (
@@ -1304,7 +1479,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     settings_status = gr.Markdown("")
                     save_settings_btn = gr.Button(i18n.get_text("btn_save_settings"), variant="primary")
                     
-                    def save_llm_settings(provider_val, ollama_model_val, openrouter_key_val, openrouter_model_val):
+                    def save_llm_settings(provider_val, ollama_model_val, openrouter_key_val, openrouter_model_val, temperature_val, top_p_val, max_tokens_val, presence_penalty_val, frequency_penalty_val):
                         """LLM 설정 저장"""
                         try:
                             env_config = app_instance.load_env_config()
@@ -1315,10 +1490,27 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                     return i18n.get_text("msg_openrouter_api_key_save_failed")
                             
                             # LLM 설정 업데이트 (API 키는 제외)
+                            # 수치형 파라미터 정규화
+                            def to_float(val, default):
+                                try:
+                                    return float(val)
+                                except (TypeError, ValueError):
+                                    return default
+                            def to_int(val, default):
+                                try:
+                                    return int(val)
+                                except (TypeError, ValueError):
+                                    return default
+                            
                             env_config["llm_settings"] = {
                                 "provider": provider_val,
                                 "ollama_model": ollama_model_val or "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
-                                "openrouter_model": openrouter_model_val or "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+                                "openrouter_model": openrouter_model_val or "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+                                "temperature": to_float(temperature_val, config.LLM_CONFIG["temperature"]),
+                                "top_p": to_float(top_p_val, config.LLM_CONFIG["top_p"]),
+                                "max_tokens": to_int(max_tokens_val, config.LLM_CONFIG["max_tokens"]),
+                                "presence_penalty": to_float(presence_penalty_val, config.LLM_CONFIG["presence_penalty"]),
+                                "frequency_penalty": to_float(frequency_penalty_val, config.LLM_CONFIG["frequency_penalty"]),
                             }
                             
                             # 환경설정 저장
@@ -1373,38 +1565,81 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                     save_settings_btn.click(
                         save_llm_settings,
-                        inputs=[llm_provider, ollama_model_input, openrouter_api_key_input, openrouter_model_input],
+                        inputs=[llm_provider, ollama_model_input, openrouter_api_key_input, openrouter_model_input, temperature_input, top_p_input, max_tokens_input, presence_penalty_input, frequency_penalty_input],
                         outputs=[settings_status]
                     )
                     
                     gr.Markdown("---")
                     gr.Markdown("## ComfyUI 설정")
                     
+                    # 스타일별 기본 설정값 정의
+                    STYLE_CONFIGS = {
+                        "SDXL": {
+                            "workflow": "comfyui_2d.json",
+                            "workflow_lora": "comfyui_2d_lora.json",
+                            "model_name": "Zeniji_Mix K-Webtoon.safetensors",
+                            "vae_name": "sdxl_vae.safetensors",
+                            "clip_name": "",
+                            "lora_name": "",
+                            "lora_strength_model": 1.0,
+                            "steps": 30,
+                            "cfg": 5,
+                            "sampler_name": "euler",
+                            "scheduler": "simple"
+                        },
+                        "QWEN/Z-image": {
+                            "workflow": "comfyui_real.json",
+                            "workflow_lora": "comfyui_real_lora.json",
+                            "model_name": "Zeniji_mix_ZiT_v1.safetensors",
+                            "vae_name": "zImage_vae.safetensors",
+                            "clip_name": "zImage_textEncoder.safetensors",
+                            "lora_name": "ZiT_K_beauty_A.safetensors",
+                            "lora_strength_model": 1.0,
+                            "steps": 9,
+                            "cfg": 1,
+                            "sampler_name": "euler",
+                            "scheduler": "simple"
+                        }
+                    }
+                    
                     # ComfyUI 설정 로드
                     comfyui_settings = env_config.get("comfyui_settings", {})
                     comfyui_port = comfyui_settings.get("server_port", 8000)
-                    workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
-                    comfyui_model = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
-                    comfyui_vae = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
-                    comfyui_clip = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
-                    comfyui_steps = comfyui_settings.get("steps", 9)
-                    comfyui_cfg = comfyui_settings.get("cfg", 1)
-                    comfyui_sampler = comfyui_settings.get("sampler_name", "euler")
-                    comfyui_scheduler = comfyui_settings.get("scheduler", "simple")
-                    
-                    # workflows 폴더의 .json 파일 목록 가져오기
-                    workflows_dir = config.PROJECT_ROOT / "workflows"
-                    workflow_files = []
-                    if workflows_dir.exists():
-                        workflow_files = sorted([f.name for f in workflows_dir.glob("*.json")])
-                    
-                    if not workflow_files:
-                        workflow_files = ["comfyui.json"]  # 기본값
-                    
-                    # 현재 선택된 워크플로우 파일명 추출
-                    current_workflow = Path(workflow_path).name if workflow_path else workflow_files[0]
-                    if current_workflow not in workflow_files:
-                        current_workflow = workflow_files[0]
+                    comfyui_style = comfyui_settings.get("style", "QWEN/Z-image")
+                    comfyui_use_lora = comfyui_settings.get("use_lora", False)
+                    style_defaults = STYLE_CONFIGS.get(comfyui_style, STYLE_CONFIGS["QWEN/Z-image"])
+                    # 스타일별 설정 로드 (개별 -> 공통 -> 기본값 순)
+                    if comfyui_style == "SDXL":
+                        default_workflow = style_defaults["workflow_lora"] if comfyui_use_lora else style_defaults["workflow"]
+                        workflow_path = comfyui_settings.get("workflow_path_sdxl") or f"workflows/{default_workflow}"
+                        comfyui_model = comfyui_settings.get("model_name_sdxl") or style_defaults["model_name"]
+                        comfyui_vae = comfyui_settings.get("vae_name_sdxl") or style_defaults["vae_name"]
+                        comfyui_clip = comfyui_settings.get("clip_name_sdxl") or style_defaults["clip_name"]
+                        comfyui_lora_name = comfyui_settings.get("lora_name_sdxl") or style_defaults["lora_name"]
+                        comfyui_lora_strength_model = comfyui_settings.get("lora_strength_model_sdxl")
+                        if comfyui_lora_strength_model in (None, ""):
+                            comfyui_lora_strength_model = style_defaults["lora_strength_model"]
+                        comfyui_steps = comfyui_settings.get("steps_sdxl") or style_defaults["steps"]
+                        comfyui_cfg = comfyui_settings.get("cfg_sdxl") or style_defaults["cfg"]
+                        comfyui_sampler = comfyui_settings.get("sampler_name_sdxl") or style_defaults["sampler_name"]
+                        comfyui_scheduler = comfyui_settings.get("scheduler_sdxl") or style_defaults["scheduler"]
+                    else:
+                        default_workflow = style_defaults["workflow_lora"] if comfyui_use_lora else style_defaults["workflow"]
+                        workflow_path = comfyui_settings.get("workflow_path_qwen") or f"workflows/{default_workflow}"
+                        comfyui_model = comfyui_settings.get("model_name_qwen") or style_defaults["model_name"]
+                        comfyui_vae = comfyui_settings.get("vae_name_qwen") or style_defaults["vae_name"]
+                        comfyui_clip = comfyui_settings.get("clip_name_qwen") or style_defaults["clip_name"]
+                        comfyui_lora_name = comfyui_settings.get("lora_name_qwen") or style_defaults["lora_name"]
+                        comfyui_lora_strength_model = comfyui_settings.get("lora_strength_model_qwen")
+                        if comfyui_lora_strength_model in (None, ""):
+                            comfyui_lora_strength_model = style_defaults["lora_strength_model"]
+                        comfyui_steps = comfyui_settings.get("steps_qwen") or style_defaults["steps"]
+                        comfyui_cfg = comfyui_settings.get("cfg_qwen") or style_defaults["cfg"]
+                        comfyui_sampler = comfyui_settings.get("sampler_name_qwen") or style_defaults["sampler_name"]
+                        comfyui_scheduler = comfyui_settings.get("scheduler_qwen") or style_defaults["scheduler"]
+                    comfyui_quality_tag = comfyui_settings.get("quality_tag", "masterpiece, best quality, very awa")
+                    comfyui_negative_prompt = comfyui_settings.get("negative_prompt", "(bad quality, worst quality, low quality), 3d, 3d rendering, manga, cartoon, 2d, fatty, thick body, big body, huge breasts, muscular, mole, watermark, text")
+                    comfyui_upscale_model = comfyui_settings.get("upscale_model_name", "4x-UltraSharp.pth")
                     
                     with gr.Row():
                         with gr.Column():
@@ -1416,15 +1651,36 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 step=1,
                                 info=i18n.get_text("comfyui_port_info")
                             )
-                            with gr.Row():
-                                comfyui_workflow_input = gr.Dropdown(
-                                    label=i18n.get_text("comfyui_workflow"),
-                                    value=current_workflow,
-                                    choices=workflow_files,
-                                    info=i18n.get_text("comfyui_workflow_info"),
-                                    scale=4
+                            comfyui_style_input = gr.Radio(
+                                label=i18n.get_text("comfyui_style"),
+                                choices=["QWEN/Z-image", "SDXL"],
+                                value=comfyui_style,
+                                info=i18n.get_text("comfyui_style_info")
+                            )
+                            comfyui_use_lora_input = gr.Checkbox(
+                                label=i18n.get_text("comfyui_use_lora") if hasattr(i18n, "get_text") else "Use LoRA",
+                                value=comfyui_use_lora
+                            )
+                            with gr.Group(visible=(comfyui_style == "SDXL")) as comfyui_2d_group:
+                                comfyui_quality_tag_input = gr.Textbox(
+                                    label=i18n.get_text("comfyui_quality_tag"),
+                                    value=comfyui_quality_tag,
+                                    placeholder=i18n.get_text("comfyui_quality_tag_placeholder"),
+                                    info=i18n.get_text("comfyui_quality_tag_info")
                                 )
-                                reload_workflow_btn = gr.Button(i18n.get_text("btn_reload"), variant="secondary", size="sm", scale=1)
+                                comfyui_negative_prompt_input = gr.Textbox(
+                                    label=i18n.get_text("comfyui_negative_prompt"),
+                                    value=comfyui_negative_prompt,
+                                    placeholder=i18n.get_text("comfyui_negative_prompt_placeholder"),
+                                    info=i18n.get_text("comfyui_negative_prompt_info"),
+                                    lines=3
+                                )
+                                comfyui_upscale_model_input = gr.Textbox(
+                                    label=i18n.get_text("comfyui_upscale_model"),
+                                    value=comfyui_upscale_model,
+                                    placeholder=i18n.get_text("comfyui_upscale_model_placeholder"),
+                                    info=i18n.get_text("comfyui_upscale_model_info")
+                                )
                             comfyui_model_input = gr.Textbox(
                                 label=i18n.get_text("comfyui_model"),
                                 value=comfyui_model,
@@ -1441,8 +1697,16 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 label=i18n.get_text("comfyui_clip"),
                                 value=comfyui_clip,
                                 placeholder=i18n.get_text("comfyui_clip_placeholder"),
-                                info=i18n.get_text("comfyui_clip_info")
+                                info=i18n.get_text("comfyui_clip_info"),
+                                visible=(comfyui_style != "SDXL")
                             )
+                            with gr.Group(visible=comfyui_use_lora) as comfyui_lora_group:
+                                comfyui_lora_name_input = gr.Textbox(
+                                    label=i18n.get_text("comfyui_lora_name"),
+                                    value=comfyui_lora_name,
+                                    placeholder=i18n.get_text("comfyui_lora_name_placeholder"),
+                                    info=i18n.get_text("comfyui_lora_name_info")
+                                )
                         with gr.Column():
                             comfyui_steps_input = gr.Number(
                                 label=i18n.get_text("comfyui_steps"),
@@ -1472,11 +1736,73 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 placeholder=i18n.get_text("comfyui_scheduler_placeholder"),
                                 info=i18n.get_text("comfyui_scheduler_info")
                             )
+                            with comfyui_lora_group:
+                                comfyui_lora_strength_model_input = gr.Number(
+                                    label=i18n.get_text("comfyui_lora_strength_model"),
+                                    value=comfyui_lora_strength_model,
+                                    minimum=-10.0,
+                                    maximum=10.0,
+                                    step=0.01,
+                                    info=i18n.get_text("comfyui_lora_strength_model_info")
+                                )
+                    
+                    # 스타일 변경 시 UI 업데이트
+                    def update_style_ui(selected_style):
+                        """스타일 변경 시 관련 설정 자동 변경"""
+                        style_defaults = STYLE_CONFIGS.get(selected_style, STYLE_CONFIGS["QWEN/Z-image"])
+                        style_key = "sdxl" if selected_style == "SDXL" else "qwen"
+                        # 현재 설정에서 스타일별 sampler/scheduler 가져오기
+                        env_config = app_instance.load_env_config()
+                        comfyui_settings = env_config.get("comfyui_settings", {})
+                        if selected_style == "SDXL":
+                            sampler_val = comfyui_settings.get("sampler_name_sdxl") or comfyui_settings.get("sampler_name") or style_defaults["sampler_name"]
+                            scheduler_val = comfyui_settings.get("scheduler_sdxl") or comfyui_settings.get("scheduler") or style_defaults["scheduler"]
+                        else:
+                            sampler_val = comfyui_settings.get("sampler_name_qwen") or comfyui_settings.get("sampler_name") or style_defaults["sampler_name"]
+                            scheduler_val = comfyui_settings.get("scheduler_qwen") or comfyui_settings.get("scheduler") or style_defaults["scheduler"]
+                        model_val = comfyui_settings.get(f"model_name_{style_key}") or style_defaults["model_name"]
+                        vae_val = comfyui_settings.get(f"vae_name_{style_key}") or style_defaults["vae_name"]
+                        clip_val = comfyui_settings.get(f"clip_name_{style_key}") or style_defaults["clip_name"]
+                        lora_val = comfyui_settings.get(f"lora_name_{style_key}") or style_defaults.get("lora_name", "")
+                        lora_strength_val = comfyui_settings.get(f"lora_strength_model_{style_key}")
+                        if lora_strength_val in (None, ""):
+                            lora_strength_val = style_defaults.get("lora_strength_model", 1.0)
+                        steps_val = comfyui_settings.get(f"steps_{style_key}") or style_defaults["steps"]
+                        cfg_val = comfyui_settings.get(f"cfg_{style_key}") or style_defaults["cfg"]
+                        
+                        return (
+                            gr.Textbox(value=model_val),  # 모델
+                            gr.Textbox(value=vae_val),  # VAE
+                            gr.Textbox(value=clip_val, visible=(selected_style != "SDXL")),  # CLIP (SDXL일 때 숨김)
+                            gr.Textbox(value=lora_val),  # LoRA 이름
+                            gr.Number(value=steps_val),  # Steps
+                            gr.Number(value=cfg_val),  # CFG
+                            gr.Textbox(value=sampler_val),  # Sampler
+                            gr.Textbox(value=scheduler_val),  # Scheduler
+                            gr.Number(value=lora_strength_val),  # LoRA 강도
+                            gr.Group(visible=(selected_style == "SDXL")),  # 2D 설정 그룹
+                        )
+                    
+                    comfyui_style_input.change(
+                        update_style_ui,
+                        inputs=[comfyui_style_input],
+                        outputs=[comfyui_model_input, comfyui_vae_input, comfyui_clip_input, comfyui_lora_name_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input, comfyui_lora_strength_model_input, comfyui_2d_group]
+                    )
+                    
+                    # LoRA 토글 변경 시 UI 업데이트 (LoRA 그룹만)
+                    def update_lora_toggle(use_lora):
+                        return gr.Group(visible=use_lora)
+                    
+                    comfyui_use_lora_input.change(
+                        update_lora_toggle,
+                        inputs=[comfyui_use_lora_input],
+                        outputs=[comfyui_lora_group]
+                    )
                     
                     comfyui_status = gr.Markdown("")
                     save_comfyui_btn = gr.Button(i18n.get_text("btn_save_comfyui"), variant="primary")
                     
-                    def save_comfyui_settings(port_val, workflow_val, model_val, vae_val, clip_val, steps_val, cfg_val, sampler_val, scheduler_val):
+                    def save_comfyui_settings(port_val, style_val, use_lora_val, model_val, vae_val, clip_val, lora_name_val, lora_strength_val, steps_val, cfg_val, sampler_val, scheduler_val, quality_tag_val, negative_prompt_val, upscale_model_val):
                         """ComfyUI 설정 저장"""
                         try:
                             env_config = app_instance.load_env_config()
@@ -1485,22 +1811,57 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                             if "comfyui_settings" not in env_config:
                                 env_config["comfyui_settings"] = {}
                             
-                            if workflow_val:
-                                # 상대 경로로 저장 (빌드된 실행 파일에서도 올바르게 작동하도록)
-                                workflow_path = f"workflows/{workflow_val}"
-                            else:
-                                # 기본값도 상대 경로로 저장
-                                workflow_path = "workflows/comfyui.json"
+                            # 스타일별 기본값 로드
+                            style_val = style_val or "QWEN/Z-image"
+                            style_key = "sdxl" if style_val == "SDXL" else "qwen"
+                            style_defaults = STYLE_CONFIGS.get(style_val, STYLE_CONFIGS["QWEN/Z-image"])
+                            # LoRA 토글에 따라 기본 워크플로우 선택
+                            use_lora = bool(use_lora_val)
+                            base_workflow = style_defaults["workflow_lora"] if use_lora else style_defaults["workflow"]
+                            workflow_path = f"workflows/{base_workflow}"
+                            model_default = style_defaults["model_name"]
+                            vae_default = style_defaults["vae_name"]
+                            clip_default = style_defaults["clip_name"]
+                            lora_default = style_defaults.get("lora_name", "")
+                            lora_strength_default = style_defaults.get("lora_strength_model", 1.0)
+                            steps_default = style_defaults["steps"]
+                            cfg_default = style_defaults["cfg"]
+                            
+                            model_value = model_val or model_default
+                            vae_value = vae_val or vae_default
+                            clip_value = clip_val or clip_default
+                            lora_value = lora_name_val or lora_default
+                            try:
+                                lora_strength_value = float(lora_strength_val) if lora_strength_val not in (None, "") else lora_strength_default
+                            except (TypeError, ValueError):
+                                lora_strength_value = lora_strength_default
+                            steps_value = int(steps_val) if steps_val not in (None, "") else steps_default
+                            cfg_value = float(cfg_val) if cfg_val not in (None, "") else cfg_default
                             
                             env_config["comfyui_settings"]["server_port"] = int(port_val) if port_val else 8000
-                            env_config["comfyui_settings"]["workflow_path"] = workflow_path
-                            env_config["comfyui_settings"]["model_name"] = model_val or "Zeniji_mix_ZiT_v1.safetensors"
-                            env_config["comfyui_settings"]["vae_name"] = vae_val or "zImage_vae.safetensors"
-                            env_config["comfyui_settings"]["clip_name"] = clip_val or "zImage_textEncoder.safetensors"
-                            env_config["comfyui_settings"]["steps"] = int(steps_val) if steps_val else 9
-                            env_config["comfyui_settings"]["cfg"] = float(cfg_val) if cfg_val else 1.0
-                            env_config["comfyui_settings"]["sampler_name"] = sampler_val or "euler"
-                            env_config["comfyui_settings"]["scheduler"] = scheduler_val or "simple"
+                            env_config["comfyui_settings"]["style"] = style_val
+                            
+                            # 전역 LoRA 사용 여부 저장
+                            env_config["comfyui_settings"]["use_lora"] = use_lora
+                            
+                            env_config["comfyui_settings"][f"workflow_path_{style_key}"] = workflow_path
+                            env_config["comfyui_settings"][f"model_name_{style_key}"] = model_value
+                            env_config["comfyui_settings"][f"vae_name_{style_key}"] = vae_value
+                            env_config["comfyui_settings"][f"clip_name_{style_key}"] = clip_value
+                            env_config["comfyui_settings"][f"lora_name_{style_key}"] = lora_value
+                            env_config["comfyui_settings"][f"lora_strength_model_{style_key}"] = lora_strength_value
+                            env_config["comfyui_settings"][f"steps_{style_key}"] = steps_value
+                            env_config["comfyui_settings"][f"cfg_{style_key}"] = cfg_value
+                            # 스타일별로 sampler/scheduler 저장
+                            if style_val == "SDXL":
+                                env_config["comfyui_settings"]["sampler_name_sdxl"] = sampler_val or "euler"
+                                env_config["comfyui_settings"]["scheduler_sdxl"] = scheduler_val or "simple"
+                            else:
+                                env_config["comfyui_settings"]["sampler_name_qwen"] = sampler_val or "euler"
+                                env_config["comfyui_settings"]["scheduler_qwen"] = scheduler_val or "simple"
+                            env_config["comfyui_settings"]["quality_tag"] = quality_tag_val or ""
+                            env_config["comfyui_settings"]["negative_prompt"] = negative_prompt_val or ""
+                            env_config["comfyui_settings"]["upscale_model_name"] = upscale_model_val or "4x-UltraSharp.pth"
                             
                             # 환경설정 저장
                             if app_instance.save_env_config(env_config):
@@ -1508,14 +1869,54 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                 try:
                                     if app_instance.comfy_client is not None:
                                         server_address = f"127.0.0.1:{env_config['comfyui_settings']['server_port']}"
-                                        workflow_path = env_config['comfyui_settings'].get('workflow_path', str(config.COMFYUI_WORKFLOW_PATH))
-                                        model_name = env_config['comfyui_settings']['model_name']
-                                        vae_name = env_config['comfyui_settings'].get('vae_name', 'zImage_vae.safetensors')
-                                        clip_name = env_config['comfyui_settings'].get('clip_name', 'zImage_textEncoder.safetensors')
-                                        steps = env_config['comfyui_settings'].get('steps', 9)
-                                        cfg = env_config['comfyui_settings'].get('cfg', 1.0)
-                                        sampler_name = env_config['comfyui_settings'].get('sampler_name', 'euler')
-                                        scheduler = env_config['comfyui_settings'].get('scheduler', 'simple')
+                                        style = env_config['comfyui_settings'].get('style', 'QWEN/Z-image')
+                                        style_defaults = STYLE_CONFIGS.get(style, STYLE_CONFIGS["QWEN/Z-image"])
+                                        # 스타일별 sampler/scheduler 가져오기 (하위 호환성 포함)
+                                        if style == "SDXL":
+                                            # 저장된 경로가 있으면 그대로 사용, 없으면 LoRA 토글에 따라 선택
+                                            use_lora = env_config['comfyui_settings'].get('use_lora', False)
+                                            default_workflow = style_defaults["workflow_lora"] if use_lora else style_defaults["workflow"]
+                                            workflow_path = env_config['comfyui_settings'].get('workflow_path_sdxl') or f"workflows/{default_workflow}"
+                                            model_name = env_config['comfyui_settings'].get('model_name_sdxl') or style_defaults['model_name']
+                                            vae_name = env_config['comfyui_settings'].get('vae_name_sdxl') or style_defaults['vae_name']
+                                            clip_name = env_config['comfyui_settings'].get('clip_name_sdxl') or style_defaults['clip_name']
+                                            # LoRA 토글에 따라 로라 적용/비적용
+                                            if env_config['comfyui_settings'].get('use_lora', False):
+                                                lora_name = env_config['comfyui_settings'].get('lora_name_sdxl') or style_defaults.get('lora_name', '')
+                                                lora_strength_model = env_config['comfyui_settings'].get('lora_strength_model_sdxl')
+                                                if lora_strength_model in (None, ""):
+                                                    lora_strength_model = style_defaults.get('lora_strength_model', 1.0)
+                                            else:
+                                                lora_name = None
+                                                lora_strength_model = None
+                                            steps = env_config['comfyui_settings'].get('steps_sdxl') or style_defaults['steps']
+                                            cfg = env_config['comfyui_settings'].get('cfg_sdxl') or style_defaults['cfg']
+                                            sampler_name = env_config['comfyui_settings'].get('sampler_name_sdxl') or style_defaults['sampler_name']
+                                            scheduler = env_config['comfyui_settings'].get('scheduler_sdxl') or style_defaults['scheduler']
+                                        else:
+                                            # 저장된 경로가 있으면 그대로 사용, 없으면 LoRA 토글에 따라 선택
+                                            use_lora = env_config['comfyui_settings'].get('use_lora', False)
+                                            default_workflow = style_defaults["workflow_lora"] if use_lora else style_defaults["workflow"]
+                                            workflow_path = env_config['comfyui_settings'].get('workflow_path_qwen') or f"workflows/{default_workflow}"
+                                            model_name = env_config['comfyui_settings'].get('model_name_qwen') or style_defaults['model_name']
+                                            vae_name = env_config['comfyui_settings'].get('vae_name_qwen') or style_defaults['vae_name']
+                                            clip_name = env_config['comfyui_settings'].get('clip_name_qwen') or style_defaults['clip_name']
+                                            # LoRA 토글에 따라 로라 적용/비적용
+                                            if env_config['comfyui_settings'].get('use_lora', False):
+                                                lora_name = env_config['comfyui_settings'].get('lora_name_qwen') or style_defaults.get('lora_name', '')
+                                                lora_strength_model = env_config['comfyui_settings'].get('lora_strength_model_qwen')
+                                                if lora_strength_model in (None, ""):
+                                                    lora_strength_model = style_defaults.get('lora_strength_model', 1.0)
+                                            else:
+                                                lora_name = None
+                                                lora_strength_model = None
+                                            steps = env_config['comfyui_settings'].get('steps_qwen') or style_defaults['steps']
+                                            cfg = env_config['comfyui_settings'].get('cfg_qwen') or style_defaults['cfg']
+                                            sampler_name = env_config['comfyui_settings'].get('sampler_name_qwen') or style_defaults['sampler_name']
+                                            scheduler = env_config['comfyui_settings'].get('scheduler_qwen') or style_defaults['scheduler']
+                                        quality_tag = env_config['comfyui_settings'].get('quality_tag', '')
+                                        negative_prompt = env_config['comfyui_settings'].get('negative_prompt', '')
+                                        upscale_model_name = env_config['comfyui_settings'].get('upscale_model_name', '4x-UltraSharp.pth')
                                         app_instance.comfy_client = ComfyClient(
                                             server_address=server_address,
                                             workflow_path=workflow_path,
@@ -1525,9 +1926,28 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                                             sampler_name=sampler_name,
                                             scheduler=scheduler,
                                             vae_name=vae_name,
-                                            clip_name=clip_name
+                                            clip_name=clip_name,
+                                            style=style,
+                                            quality_tag=quality_tag,
+                                            negative_prompt=negative_prompt,
+                                            upscale_model_name=upscale_model_name,
+                                            lora_name=lora_name,
+                                            lora_strength_model=lora_strength_model
                                         )
-                                        logger.info(f"ComfyClient 재초기화 완료: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
+                                        # LoRA 사용 여부에 따라 로그 메시지 분리
+                                        if lora_name is not None:
+                                            logger.info(
+                                                f"ComfyClient 재초기화 완료: {server_address}, "
+                                                f"workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, "
+                                                f"LoRA enabled: name={lora_name}, strength_model={lora_strength_model}, "
+                                                f"steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}"
+                                            )
+                                        else:
+                                            logger.info(
+                                                f"ComfyClient 재초기화 완료: {server_address}, "
+                                                f"workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, "
+                                                f"LoRA disabled, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}"
+                                            )
                                     return i18n.get_text("msg_comfyui_settings_saved")
                                 except Exception as e:
                                     logger.error(f"Failed to reinitialize ComfyClient: {e}")
@@ -1540,14 +1960,8 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                     
                     save_comfyui_btn.click(
                         save_comfyui_settings,
-                        inputs=[comfyui_port_input, comfyui_workflow_input, comfyui_model_input, comfyui_vae_input, comfyui_clip_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input],
+                        inputs=[comfyui_port_input, comfyui_style_input, comfyui_use_lora_input, comfyui_model_input, comfyui_vae_input, comfyui_clip_input, comfyui_lora_name_input, comfyui_lora_strength_model_input, comfyui_steps_input, comfyui_cfg_input, comfyui_sampler_input, comfyui_scheduler_input, comfyui_quality_tag_input, comfyui_negative_prompt_input, comfyui_upscale_model_input],
                         outputs=[comfyui_status]
-                    )
-                    
-                    reload_workflow_btn.click(
-                        reload_workflow_files,
-                        inputs=[comfyui_workflow_input],
-                        outputs=[comfyui_workflow_input]
                     )
             
             # 첫 탭의 버튼 클릭 시 대화 탭 컴포넌트 업데이트 (탭 밖에서 정의)
@@ -1556,7 +1970,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                 inputs=[
                     player_name, player_gender,
                     char_name, char_age, char_gender,
-                    appearance, personality,
+                    appearance, personality, speech_style,
                     p_val, a_val, d_val, i_val, t_val, dep_val,
                     initial_context, initial_background
                 ],
@@ -1588,7 +2002,7 @@ Dep (의존): {stats.get('Dep', 0):.0f}<br>
                 f"""
                 <div style="text-align: center; margin-top: 20px; padding: 10px; color: #666;">
                     ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a><br>
-                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">커뮤니티</a><br>
+                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">Zeniji Channel on Arcalive</a><br>
                     ☕ <a href="https://buymeacoffee.com/zeniji" target="_blank" style="color: #666; text-decoration: none;">Buy Me a Coffee</a><br>
                     <span style="font-size: 0.85em; opacity: 0.7;">Version {config.VERSION}</span>
                 </div>

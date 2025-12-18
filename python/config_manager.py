@@ -5,7 +5,7 @@ Zeniji Emotion Simul - Config Manager
 
 import json
 import logging
-from typing import Dict
+from typing import Dict, Optional
 import config
 from i18n import get_i18n
 
@@ -34,6 +34,23 @@ class ConfigManager:
         """설정에서 None 값을 기본값으로 대체"""
         default = self._default_config()
         
+        def normalize_gender(value: Optional[str], fallback: str) -> str:
+            """성별 문자열을 표준화 (로컬 언어 입력도 매핑)"""
+            if not value:
+                return fallback
+            text = str(value).strip().lower()
+            male_aliases = {"male", "m", "남", "남성", "남자"}
+            female_aliases = {"female", "f", "여", "여성", "여자"}
+            other_aliases = {"other", "o", "기타", "others"}
+            
+            if text in male_aliases:
+                return default["player"]["gender"]  # male 기본값 (언어별)
+            if text in female_aliases:
+                return default["character"]["gender"]  # female 기본값 (언어별 동일 값)
+            if text in other_aliases:
+                return get_i18n().get_text("other")  # 기타는 직접 가져오기
+            return value
+        
         # initial_stats의 None 값 처리
         initial_stats = config_data.get("initial_stats", {}) or {}
         sanitized_stats = {}
@@ -48,6 +65,14 @@ class ConfigManager:
         char_age = character.get("age")
         if char_age is None:
             char_age = default["character"]["age"]
+        # character gender 기본값 보정
+        char_gender = character.get("gender")
+        char_gender = normalize_gender(char_gender, default["character"]["gender"])
+        
+        # player gender 기본값 보정
+        player = config_data.get("player", {}) or {}
+        player_gender = player.get("gender")
+        player_gender = normalize_gender(player_gender, default["player"]["gender"])
         
         # None 값이 있으면 기본값으로 병합
         result = default.copy()
@@ -55,6 +80,9 @@ class ConfigManager:
         result["initial_stats"] = sanitized_stats
         if "character" in result:
             result["character"]["age"] = int(char_age) if char_age is not None else default["character"]["age"]
+            result["character"]["gender"] = char_gender
+        if "player" in result:
+            result["player"]["gender"] = player_gender
         
         return result
     
@@ -76,7 +104,8 @@ class ConfigManager:
                 "age": 21,
                 "gender": i18n.get_default("character_gender"),
                 "appearance": "korean beauty, short hair, brown eyes, cute face, casual outfit",
-                "personality": i18n.get_default("character_personality")
+                "personality": i18n.get_default("character_personality"),
+                "speech_style": i18n.get_default("character_speech_style")
             },
             "initial_stats": {
                 "P": 50.0,
@@ -91,18 +120,41 @@ class ConfigManager:
             "llm_settings": {
                 "provider": "ollama",
                 "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
-                "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+                "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+                "temperature": config.LLM_CONFIG["temperature"],
+                "top_p": config.LLM_CONFIG["top_p"],
+                "max_tokens": config.LLM_CONFIG["max_tokens"],
+                "presence_penalty": config.LLM_CONFIG["presence_penalty"],
+                "frequency_penalty": config.LLM_CONFIG["frequency_penalty"],
             },
             "comfyui_settings": {
                 "server_port": 8000,
-                "workflow_path": config.COMFYUI_CONFIG["workflow_path"],
-                "model_name": "Zeniji_mix_ZiT_v1.safetensors",
-                "vae_name": "zImage_vae.safetensors",
-                "clip_name": "zImage_textEncoder.safetensors",
-                "steps": 9,
-                "cfg": 1,
-                "sampler_name": "euler",
-                "scheduler": "simple"
+                # 스타일별 기본 워크플로우 경로 (LoRA 미사용 기준)
+                "workflow_path_qwen": "workflows/comfyui_real.json",
+                "workflow_path_sdxl": "workflows/comfyui_2d.json",
+                # LoRA 사용 여부 (전역 토글)
+                "use_lora": False,
+                "model_name_qwen": "Zeniji_mix_ZiT_v1.safetensors",
+                "model_name_sdxl": "Zeniji_Mix K-Webtoon.safetensors",
+                "vae_name_qwen": "zImage_vae.safetensors",
+                "vae_name_sdxl": "sdxl_vae.safetensors",
+                "clip_name_qwen": "zImage_textEncoder.safetensors",
+                "clip_name_sdxl": "",
+                "lora_name_qwen": "ZiT_K_beauty_A.safetensors",
+                "lora_name_sdxl": "",
+                "lora_strength_model_qwen": 1.0,
+                "lora_strength_model_sdxl": 1.0,
+                "steps_qwen": 9,
+                "steps_sdxl": 30,
+                "cfg_qwen": 1,
+                "cfg_sdxl": 5,
+                "sampler_name_qwen": "euler",
+                "scheduler_qwen": "simple",
+                "sampler_name_sdxl": "euler",
+                "scheduler_sdxl": "simple",
+                "style": "QWEN/Z-image",
+                "quality_tag": "masterpiece, best quality, very awa",
+                "negative_prompt": "(bad quality, worst quality, low quality), 3d, 3d rendering, manga, cartoon, 2d, fatty, thick body, big body, huge breasts, muscular, mole, watermark, text"
             }
         }
     
@@ -147,18 +199,41 @@ class ConfigManager:
             "llm_settings": {
                 "provider": "ollama",
                 "ollama_model": "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest",
-                "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+                "openrouter_model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+                "temperature": config.LLM_CONFIG["temperature"],
+                "top_p": config.LLM_CONFIG["top_p"],
+                "max_tokens": config.LLM_CONFIG["max_tokens"],
+                "presence_penalty": config.LLM_CONFIG["presence_penalty"],
+                "frequency_penalty": config.LLM_CONFIG["frequency_penalty"],
             },
             "comfyui_settings": {
                 "server_port": 8000,
-                "workflow_path": config.COMFYUI_CONFIG["workflow_path"],
-                "model_name": "Zeniji_mix_ZiT_v1.safetensors",
-                "vae_name": "zImage_vae.safetensors",
-                "clip_name": "zImage_textEncoder.safetensors",
-                "steps": 9,
-                "cfg": 1,
-                "sampler_name": "euler",
-                "scheduler": "simple"
+                # 스타일별 기본 워크플로우 경로 (LoRA 미사용 기준)
+                "workflow_path_qwen": "workflows/comfyui_real.json",
+                "workflow_path_sdxl": "workflows/comfyui_2d.json",
+                # LoRA 사용 여부 (전역 토글)
+                "use_lora": False,
+                "model_name_qwen": "Zeniji_mix_ZiT_v1.safetensors",
+                "model_name_sdxl": "Zeniji_Mix K-Webtoon.safetensors",
+                "vae_name_qwen": "zImage_vae.safetensors",
+                "vae_name_sdxl": "sdxl_vae.safetensors",
+                "clip_name_qwen": "zImage_textEncoder.safetensors",
+                "clip_name_sdxl": "",
+                "lora_name_qwen": "ZiT_K_beauty_A.safetensors",
+                "lora_name_sdxl": "",
+                "lora_strength_model_qwen": 1.0,
+                "lora_strength_model_sdxl": 1.0,
+                "steps_qwen": 9,
+                "steps_sdxl": 30,
+                "cfg_qwen": 1,
+                "cfg_sdxl": 5,
+                "sampler_name_qwen": "euler",
+                "scheduler_qwen": "simple",
+                "sampler_name_sdxl": "euler",
+                "scheduler_sdxl": "simple",
+                "style": "QWEN/Z-image",
+                "quality_tag": "masterpiece, best quality, very awa",
+                "negative_prompt": "(bad quality, worst quality, low quality), 3d, 3d rendering, manga, cartoon, 2d, fatty, thick body, big body, huge breasts, muscular, mole, watermark, text"
             }
         }
     
@@ -331,6 +406,21 @@ class ConfigManager:
     def apply_preset(self, preset_name: str) -> tuple:
         """프리셋 적용 - 모든 수치가 확실히 숫자가 되도록 보장"""
         preset = config.PRESETS.get(preset_name, {})
+        i18n = get_i18n()
+        
+        # 언어별 personality 텍스트 매핑
+        preset_personality_keys = {
+            "소꿉친구": "preset_personality_childhood_friend",
+            "혐관 라이벌": "preset_personality_hostile_rival",
+            "피폐/집착": "preset_personality_obsessive_depraved",
+        }
+        personality_text = preset.get("personality") or ""
+        if preset_name in preset_personality_keys:
+            # 현재 설정된 언어로 personality 텍스트 가져오기
+            personality_text = i18n.get_default(preset_personality_keys[preset_name])
+        
+        speech_style_text = preset.get("speech_style") or i18n.get_default("character_speech_style")
+        
         # get(key, default)를 써도 되지만, 혹시 None이 들어있는 경우를 대비해 or 처리
         return (
             float(preset.get("P") or 50.0),
@@ -340,6 +430,7 @@ class ConfigManager:
             float(preset.get("T") or 50.0),
             float(preset.get("Dep") or 0.0),
             str(preset.get("appearance") or ""),
-            str(preset.get("personality") or "")
+            str(personality_text or ""),
+            str(speech_style_text or "")
         )
 

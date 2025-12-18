@@ -1,0 +1,251 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 662372983305995,
+      "steps": 30,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "sgm_uniform",
+      "denoise": 1,
+      "model": [
+        "35",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "masterpiece, best quality, very awa, very aesthetic,  19 years old, mixed korean beauty, delicate features, beautiful girl, dark eyes, natural blush, dwey skin, medium breasts, skinny sleder, expression: teary eyes, mouth stretched, drool, choking expression, attire: lightpink sequin sultry cutout side slit mini micro dress, nudity level: fully clothed, hair: gorgeous slick dark brown long hair, pose: kneeling on the floor, hands on lap, head slightly bowed, deepthroating penis, angle: pov, close up face, background: modern extravagant living room, leather sofa, night cityscape, lighting: warm indoor lighting",
+      "clip": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "(bad quailty, worst quality, low quality),\n3d, 3d rendering, manga, cartoon, 2d,\nfatty, thick body, big body, huge breasts, muscular,\nmole,\nwatermark, text",
+      "clip": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE 디코드"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ZEMS",
+      "images": [
+        "32",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "이미지 저장"
+    }
+  },
+  "13": {
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "빈 잠재 이미지 (SD3)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "vae_name": "sdxl_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE 로드"
+    }
+  },
+  "19": {
+    "inputs": {
+      "ckpt_name": "Zeniji_Mix K-Webtoon.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "체크포인트 로드"
+    }
+  },
+  "21": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "업스케일 모델 로드"
+    }
+  },
+  "22": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "35",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIP 마지막 레이어 설정"
+    }
+  },
+  "29": {
+    "inputs": {
+      "upscale_model": [
+        "21",
+        0
+      ],
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "모델을 사용한 이미지 확대"
+    }
+  },
+  "30": {
+    "inputs": {
+      "pixels": [
+        "34",
+        0
+      ],
+      "vae": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE 인코드"
+    }
+  },
+  "31": {
+    "inputs": {
+      "seed": 130794851063270,
+      "steps": 10,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "sgm_uniform",
+      "denoise": 0.3,
+      "model": [
+        "35",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "30",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "32": {
+    "inputs": {
+      "samples": [
+        "31",
+        0
+      ],
+      "vae": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE 디코드"
+    }
+  },
+  "34": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 1200,
+      "height": 1600,
+      "crop": "disabled",
+      "image": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "이미지 확대"
+    }
+  },
+  "35": {
+    "inputs": {
+      "lora_name": "BreastSize_Slider_m2_to_p2 (1).safetensors",
+      "strength_model": 1,
+      "strength_clip": 1,
+      "model": [
+        "19",
+        0
+      ],
+      "clip": [
+        "19",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA 로드"
+    }
+  }
+}

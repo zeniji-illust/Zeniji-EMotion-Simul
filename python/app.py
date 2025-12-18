@@ -10,7 +10,7 @@ import json
 import sys
 import socket
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 from datetime import datetime
 
 # PyInstaller 호환성을 위한 경로 설정
@@ -59,11 +59,80 @@ class GameApp:
         self.previous_relationship: Optional[str] = None  # 이전 관계 상태 (모달용)
         self.previous_badges: set = set()  # 이전 턴의 뱃지 목록 (알림용)
         self.last_image_generation_info: Optional[Dict[str, str]] = None  # 마지막 이미지 생성 정보 (visual_prompt, appearance)
+        # 최근 턴 정보 (순간 저장용)
+        self.last_speech: str = ""
+        self.last_thought: str = ""
+        self.last_action: str = ""
+        self.last_relationship: str = ""
+        self.last_mood: str = ""
+        self.last_badges: list = []
         
         # 분리된 모듈 초기화
         self.encryption_manager = EncryptionManager()
         self.config_manager = ConfigManager()
         self.ui_components = UIComponents()
+    
+    def _write_error_report_md(self, context: str, error: Exception, traceback_text: str, extra: Optional[Dict[str, Any]] = None) -> Optional[Path]:
+        """에러 리포트를 Markdown 파일로 저장 (사용자 공유용)
+        
+        Args:
+            context: 에러가 발생한 컨텍스트 설명 (예: 'process_turn')
+            error: 발생한 예외 객체
+            traceback_text: traceback.format_exc() 결과
+            extra: 추가로 기록할 컨텍스트 정보 딕셔너리
+        
+        Returns:
+            생성된 파일 경로 (실패 시 None)
+        """
+        try:
+            from datetime import datetime
+            import platform
+            
+            # 디렉터리 생성
+            config.ERROR_LOG_DIR.mkdir(parents=True, exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"error_{timestamp}.md"
+            file_path = config.ERROR_LOG_DIR / filename
+            
+            # Markdown 형식으로 에러 리포트 작성
+            lines = []
+            lines.append(f"# Zeniji Emotion Simul Error Report")
+            lines.append("")
+            lines.append(f"- Version: {getattr(config, 'VERSION', 'unknown')}")
+            lines.append(f"- Timestamp: {timestamp}")
+            lines.append(f"- Context: {context}")
+            lines.append(f"- Error Type: {type(error).__name__}")
+            lines.append(f"- Error Message: {str(error)}")
+            lines.append(f"- Dev Mode: {self.dev_mode}")
+            lines.append(f"- Python: {platform.python_version()}")
+            lines.append(f"- OS: {platform.system()} {platform.release()} ({platform.version()})")
+            lines.append("")
+            
+            if extra:
+                lines.append("## Extra Context")
+                lines.append("")
+                for key, value in extra.items():
+                    try:
+                        lines.append(f"- **{key}**: {value}")
+                    except Exception:
+                        # 값 직렬화에 실패해도 전체 리포트는 계속 작성
+                        lines.append(f"- **{key}**: <unserializable>")
+                lines.append("")
+            
+            lines.append("## Traceback")
+            lines.append("")
+            lines.append("```text")
+            lines.append(traceback_text.rstrip())
+            lines.append("```")
+            lines.append("")
+            
+            file_path.write_text("\n".join(lines), encoding="utf-8")
+            logger.error(f"에러 리포트가 생성되었습니다: {file_path}")
+            return file_path
+        except Exception as log_err:
+            logger.error(f"에러 리포트 생성 중 오류 발생: {log_err}")
+            return None
     
     # 설정 관리 메서드 (config_manager 위임)
     def load_config(self) -> Dict:
@@ -103,163 +172,134 @@ class GameApp:
         return self.config_manager.save_scenario(scenario_data, scenario_name)
     
     def _overlay_text_on_image(self, image: Image.Image, overlay_text: str) -> Image.Image:
-        """
-        주어진 이미지 하단에 overlay_text를 반투명 박스와 함께 오버레이해서 반환
-        (원본 이미지는 변경하지 않고 새 이미지를 반환)
-        """
+        """이미지 하단에 모던한 그라데이션 오버레이와 텍스트"""
         if not overlay_text:
             return image
 
-        # RGBA로 변환
         img = image.convert("RGBA")
         W, H = img.size
 
+        # 폰트 설정 - 이미지 크기에 비례하되 적당한 범위 유지
+        font_size = max(14, min(W // 45, 28))
+        font = self._load_font(font_size)
+
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
+        # 텍스트 래핑
+        wrapped_lines = self._wrap_text(overlay_text, draw, font, int(W * 0.88))
+        if not wrapped_lines:
+            return image
+        # 타이포그래피 설정
+        bbox = font.getbbox("Ag")  # ascender + descender 기준
+        base_height = bbox[3] - bbox[1]
+        line_height = int(base_height * 1.45)  # 적당한 줄간격
 
-        # 폰트 로드 - Gradio 폰트 스택 순서대로 시도
-        # Gradio font stack: IBM Plex Sans, ui-sans-serif, system-ui, -apple-system, 
-        # BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif
-        try:
-            # 글자 조금 더 크게
-            font_size = max(18, W // 45)
+        padding_x = int(W * 0.06)
+        padding_y = int(base_height * 0.8)
+        text_block_height = line_height * len(wrapped_lines) + padding_y * 2
+        # 그라데이션 오버레이 (아래로 갈수록 진해짐)
+        gradient_height = int(text_block_height * 1.8)
+        gradient_top = H - gradient_height
 
-            font = None
-            font_candidates = []
-            
-            import os
-            import platform
+        for y in range(gradient_height):
+            # easeInQuad 커브로 자연스러운 그라데이션
+            progress = y / gradient_height
+            alpha = int(180 * (progress ** 1.8))
+            draw.line([(0, gradient_top + y), (W, gradient_top + y)], fill=(0, 0, 0, alpha))
+        # 텍스트 렌더링
+        text_top = H - text_block_height + padding_y
+        y = text_top
 
-            # 1. IBM Plex Sans (Gradio 기본 폰트, 일반적으로 설치되어 있지 않을 수 있음)
-            # Windows Fonts 폴더와 일반 경로 체크
-            if os.name == "nt":
-                windir = os.environ.get("WINDIR", r"C:\Windows")
-                plex_paths = [
-                    os.path.join(windir, "Fonts", "IBMPlexSans-Regular.ttf"),
-                    os.path.join(windir, "Fonts", "IBMPlexSans-Medium.ttf"),
-                ]
-                font_candidates.extend(plex_paths)
-            # Linux/Mac 경로도 시도
-            common_font_paths = [
-                "/usr/share/fonts/truetype/ibm-plex/IBMPlexSans-Regular.ttf",
-                "/usr/share/fonts/truetype/ibm-plex/IBMPlexSans-Medium.ttf",
-                "/Library/Fonts/IBMPlexSans-Regular.ttf",
-                "~/.fonts/IBMPlexSans-Regular.ttf",
+        for i, line in enumerate(wrapped_lines):
+            # 좌측 정렬 (더 모던한 느낌)
+            x = padding_x
+
+            # 살짝 투명한 흰색 (눈이 편함)
+            text_alpha = 245 if i == 0 else 230  # 첫 줄 약간 강조
+            draw.text((x, y), line, font=font, fill=(255, 255, 255, text_alpha))
+            y += line_height
+        return Image.alpha_composite(img, overlay).convert("RGB")
+
+    def _load_font(self, size: int) -> ImageFont.FreeTypeFont:
+        """모던한 폰트 우선 로드"""
+        import os
+        import platform
+
+        # 세련된 폰트 우선순위
+        fonts = [
+            # 모던 한글
+            "Pretendard-Regular.otf", "PretendardVariable.ttf",
+            "SUIT-Regular.otf", "SUIT-Variable.ttf",
+            "SpoqaHanSansNeo-Regular.ttf",
+            # Noto Sans (범용)
+            "NotoSansKR-Regular.otf", "NotoSansCJK-Regular.ttc",
+            # 시스템 폰트
+            "malgun.ttf", "AppleSDGothicNeo.ttc",
+        ]
+
+        # OS별 폰트 디렉토리
+        if os.name == "nt":
+            windir = os.environ.get("WINDIR", r"C:\Windows")
+            dirs = [os.path.join(windir, "Fonts")]
+        elif platform.system() == "Darwin":
+            dirs = ["/Library/Fonts", os.path.expanduser("~/Library/Fonts")]
+        else:
+            dirs = [
+                "/usr/share/fonts/opentype/pretendard",
+                "/usr/share/fonts/truetype/noto",
+                "/usr/share/fonts/truetype/nanum",
             ]
-            font_candidates.extend(common_font_paths)
-            font_candidates.append("IBMPlexSans-Regular.ttf")  # 시스템 폰트 경로에 있을 수도
 
-            # 2. Segoe UI (Windows 시스템 UI 폰트)
-            if os.name == "nt":
-                windir = os.environ.get("WINDIR", r"C:\Windows")
-                font_candidates.append(os.path.join(windir, "Fonts", "segoeui.ttf"))
-            font_candidates.extend(["segoeui.ttf", "Segoe UI", "segoe ui"])
-
-            # 3. Arial (범용 sans-serif)
-            if os.name == "nt":
-                windir = os.environ.get("WINDIR", r"C:\Windows")
-                font_candidates.append(os.path.join(windir, "Fonts", "arial.ttf"))
-            font_candidates.extend(["arial.ttf", "Arial"])
-
-            # 4. Roboto (Android/Chrome OS)
-            font_candidates.extend(["Roboto-Regular.ttf", "Roboto", "roboto.ttf"])
-
-            # 5. Helvetica Neue (macOS)
-            if platform.system() == "Darwin":
-                font_candidates.extend(["HelveticaNeue.ttc", "Helvetica Neue"])
-
-            # 6. 시스템 기본 sans-serif 폰트들
-            font_candidates.extend(["calibri.ttf", "Calibri", "tahoma.ttf", "Tahoma", "verdana.ttf", "Verdana"])
-
-            # 7. Noto Sans (다국어 지원)
-            font_candidates.extend(["NotoSans-Regular.ttf", "Noto Sans"])
-
-            # 폰트 시도
-            for font_name in font_candidates:
+        # 폰트 탐색
+        for font_name in fonts:
+            for font_dir in dirs + ["."]:
                 try:
-                    # 경로 확장 (~ -> 홈 디렉토리)
-                    if font_name.startswith("~"):
-                        font_name = os.path.expanduser(font_name)
-                    font = ImageFont.truetype(font_name, font_size)
-                    logger.debug(f"Font loaded: {font_name}")
-                    break
+                    path = os.path.join(font_dir, font_name)
+                    return ImageFont.truetype(path, size)
                 except Exception:
-                    font = None
-                    continue
+                    pass
+            try:
+                return ImageFont.truetype(font_name, size)
+            except Exception:
+                pass
 
-            # 폰트를 찾지 못한 경우 폴백
-            if font is None:
-                # Windows 한글 폰트 시도
-                if os.name == "nt":
-                    try:
-                        windir = os.environ.get("WINDIR", r"C:\Windows")
-                        font = ImageFont.truetype(os.path.join(windir, "Fonts", "malgun.ttf"), font_size)
-                        logger.debug("Font fallback: malgun.ttf")
-                    except Exception:
-                        try:
-                            windir = os.environ.get("WINDIR", r"C:\Windows")
-                            font = ImageFont.truetype(os.path.join(windir, "Fonts", "gulim.ttc"), font_size)
-                            logger.debug("Font fallback: gulim.ttc")
-                        except Exception:
-                            font = ImageFont.load_default()
-                            logger.debug("Font fallback: default")
-                else:
-                    font = ImageFont.load_default()
-                    logger.debug("Font fallback: default")
-        except Exception as e:
-            logger.warning(f"Font loading error: {e}, using default")
-            font = ImageFont.load_default()
+        return ImageFont.load_default()
+    
+    # ===== ComfyUI / 이미지 처리 보조 메서드 =====
+    def _is_sdxl_style(self) -> bool:
+        """현재 ComfyUI 스타일이 SDXL인지 여부 (없으면 False)"""
+        try:
+            if self.comfy_client is None:
+                return False
+            style = getattr(self.comfy_client, "style", None)
+            return style == "SDXL"
+        except Exception:
+            return False
 
-        # 줄 단위로 나누고, 각 줄을 다시 폭에 맞춰 wrap
-        max_width = int(W * 0.9)
-        wrapped_lines = []
-        for raw_line in overlay_text.split("\n"):
-            line = raw_line.strip()
-            if not line:
+    def _wrap_text(self, text: str, draw: ImageDraw.Draw, font, max_width: int) -> List[str]:
+        """텍스트 래핑 - 자연스러운 줄바꿈"""
+        lines: List[str] = []
+        for paragraph in text.split("\n"):
+            paragraph = paragraph.strip()
+            if not paragraph:
                 continue
-            words = line.split()
+
+            words = paragraph.split()
             current = ""
-            for w in words:
-                test = (current + " " + w).strip()
+
+            for word in words:
+                test = f"{current} {word}".strip()
                 if draw.textlength(test, font=font) <= max_width:
                     current = test
                 else:
                     if current:
-                        wrapped_lines.append(current)
-                    current = w
+                        lines.append(current)
+                    current = word
+
             if current:
-                wrapped_lines.append(current)
+                lines.append(current)
 
-        if not wrapped_lines:
-            return image
-
-        # 텍스트 높이 계산 (줄 간격을 더 넉넉하게)
-        bbox = font.getbbox("A")
-        base_line_height = bbox[3] - bbox[1]
-        # 줄 간격을 조금 더 크게 (1.5배)
-        line_height = int(base_line_height * 1.5)
-        # 상하 패딩도 약간 증가
-        padding_y = int(base_line_height * 0.9)
-        padding_x = int(font_size * 0.6) if 'font_size' in locals() else 10
-        total_text_h = line_height * len(wrapped_lines) + padding_y * 2
-
-        # 바탕 반투명 박스 (하단)
-        box_y0 = H - total_text_h
-        box_y1 = H
-        draw.rectangle(
-            [(0, box_y0), (W, box_y1)],
-            fill=(0, 0, 0, 170)
-        )
-
-        # 텍스트 중앙 정렬로 그리기
-        y = box_y0 + padding_y
-        for line in wrapped_lines:
-            text_w = draw.textlength(line, font=font)
-            x = (W - text_w) / 2
-            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
-            y += line_height
-
-        return Image.alpha_composite(img, overlay).convert("RGB")
+        return lines
 
     def _build_overlay_text(self, stats: Dict[str, float], relationship: str, mood: str, badges: list) -> str:
         """
@@ -314,12 +354,156 @@ class GameApp:
             
             file_path = config.IMAGE_DIR / filename
             
+            # 스타일에 따라 리사이즈 비율 결정 (SDXL: 1.2배, 그 외: 1.5배)
+            scale = 1.2 if self._is_sdxl_style() else 1.5
+            width, height = image.size
+            resized_image = image.resize((int(width * scale), int(height * scale)), Image.LANCZOS)
+            
             # 이미지 저장
-            image.save(file_path, "PNG")
+            resized_image.save(file_path, "PNG")
             logger.info(f"Generated image saved to: {file_path}")
             return str(file_path)
         except Exception as e:
             logger.error(f"Failed to save generated image: {e}")
+            return None
+
+    def _build_moment_overlay_text(self) -> str:
+        """
+        최근 턴의 대사/속마음/행동과 관계/기분/뱃지를 한 번에 표시할 오버레이 텍스트 생성
+        """
+        lines = []
+
+        speech = getattr(self, "last_speech", "") or ""
+        thought = getattr(self, "last_thought", "") or ""
+        action = getattr(self, "last_action", "") or ""
+        relationship = getattr(self, "last_relationship", "") or ""
+        mood = getattr(self, "last_mood", "") or ""
+        badges = getattr(self, "last_badges", []) or []
+
+        # 1) 비어 있는 항목은 최근 턴 기록(history)에서 보충
+        if self.brain is not None:
+            try:
+                history_obj = getattr(self.brain, "history", None)
+                history_turns = getattr(history_obj, "turns", None) if history_obj else None
+                if history_turns:
+                    last_turn = history_turns[-1]
+                    speech = speech or getattr(last_turn, "character_speech", "") or ""
+                    thought = thought or getattr(last_turn, "character_thought", "") or ""
+                    # action_speech가 turn에 없을 수 있으니 안전하게 접근
+                    action = action or getattr(last_turn, "action_speech", "") or getattr(last_turn, "character_action", "") or action
+            except Exception:
+                pass
+
+        # 2) 상태 정보로 관계/기분/뱃지 보충
+        if self.brain is not None and getattr(self.brain, "state", None) is not None:
+            state = self.brain.state
+            if not relationship:
+                relationship = getattr(state, "relationship_status", "") or relationship
+            if not mood:
+                try:
+                    from logic_engine import interpret_mood
+                    mood = interpret_mood(state) or mood
+                except Exception:
+                    pass
+            if not badges:
+                try:
+                    badges = list(getattr(state, "badges", [])) or badges
+                except Exception:
+                    pass
+
+        if speech:
+            label = get_i18n().get_text("save_moment_overlay_speech", category="ui")
+            lines.append(f"{label}: {speech}")
+        if thought:
+            label = get_i18n().get_text("save_moment_overlay_thought", category="ui")
+            lines.append(f"{label}: {thought}")
+        if action:
+            label = get_i18n().get_text("save_moment_overlay_action", category="ui")
+            lines.append(f"{label}: {action}")
+
+        badge_names = [str(b).strip() for b in badges if str(b).strip()]
+        info_parts = []
+        if relationship:
+            label = get_i18n().get_text("save_moment_overlay_relationship", category="ui")
+            info_parts.append(f"{label}: {relationship}")
+        if mood:
+            label = get_i18n().get_text("save_moment_overlay_mood", category="ui")
+            info_parts.append(f"{label}: {mood}")
+        if badge_names:
+            label = get_i18n().get_text("save_moment_overlay_badge", category="ui")
+            info_parts.append(f"{label}: {', '.join(badge_names)}")
+
+        if info_parts:
+            if lines:
+                lines.append("")  # 위/아래 구분을 위해 한 줄 비우기
+            lines.append(" | ".join(info_parts))
+
+        return "\n".join([line for line in lines if line]).strip()
+
+    def _save_moment_image_file(self, image: Image.Image) -> Optional[str]:
+        """
+        순간 캡처 이미지를 파일로 저장 (turn 번호를 파일명에 포함)
+        이미지는 이미 리사이즈되어 전달되므로 그대로 저장
+        """
+        try:
+            config.IMAGE_DIR.mkdir(exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            turn_number = None
+            if self.brain is not None and getattr(self.brain, "state", None) is not None:
+                turn_number = getattr(self.brain.state, "total_turns", None)
+
+            if turn_number is not None:
+                filename = f"moment_turn{turn_number:04d}_{timestamp}.png"
+            else:
+                filename = f"moment_{timestamp}.png"
+
+            file_path = config.IMAGE_DIR / filename
+            
+            # 이미 리사이즈된 이미지를 그대로 저장 (중복 리사이즈 방지)
+            image.save(file_path, "PNG")
+            logger.info(f"Moment image saved to: {file_path}")
+            return str(file_path)
+        except Exception as e:
+            logger.error(f"Failed to save moment image: {e}")
+            return None
+
+    def save_moment_image(self) -> Optional[str]:
+        """
+        현재 이미지를 2배(Lanczos)로 확대한 뒤 대사/속마음/행동/관계/기분/뱃지 오버레이를 얹어 저장
+        """
+        if self.current_image is None:
+            return None
+
+        try:
+            base_image = self.current_image
+
+            # 스타일에 따라 업스케일 비율 결정 (SDXL: 1.2배, 그 외: 1.5배)
+            scale = 1.2 if self._is_sdxl_style() else 1.5
+
+            # Pillow 버전별 Lanczos 상수 대응
+            try:
+                resample_filter = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+            except Exception:
+                resample_filter = getattr(Image, "LANCZOS", Image.BICUBIC)
+
+            target_image = base_image.resize(
+                (
+                    max(1, int(round(base_image.width * scale))),
+                    max(1, int(round(base_image.height * scale))),
+                ),
+                resample=resample_filter,
+            )
+
+            overlay_text = self._build_moment_overlay_text()
+            if overlay_text:
+                target_image = self._overlay_text_on_image(target_image, overlay_text)
+
+            return self._save_moment_image_file(target_image)
+        except Exception as e:
+            logger.error(f"Failed to save moment image with overlay: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return None
     
     def load_scenario(self, scenario_name: str) -> dict:
@@ -345,7 +529,7 @@ class GameApp:
         self,
         player_name, player_gender,
         char_name, char_age, char_gender,
-        appearance, personality,
+        appearance, personality, speech_style,
         p_val, a_val, d_val, i_val, t_val, dep_val,
         initial_context, initial_background
     ) -> Tuple[str, str, list, str, str, str, str, str, str, Any, Any, Any]:
@@ -354,7 +538,7 @@ class GameApp:
             self,
             player_name, player_gender,
             char_name, char_age, char_gender,
-            appearance, personality,
+            appearance, personality, speech_style,
             p_val, a_val, d_val, i_val, t_val, dep_val,
             initial_context, initial_background
         )
@@ -376,6 +560,12 @@ class GameApp:
             provider = llm_settings.get("provider", "ollama")
             ollama_model = llm_settings.get("ollama_model", "kwangsuklee/Qwen2.5-14B-Gutenberg-1e-Delta.Q5_K_M:latest")
             openrouter_model = llm_settings.get("openrouter_model", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free")
+            # LLM 파라미터 적용 (env_config 우선, 없으면 config 기본값)
+            config.LLM_CONFIG["temperature"] = float(llm_settings.get("temperature", config.LLM_CONFIG["temperature"]))
+            config.LLM_CONFIG["top_p"] = float(llm_settings.get("top_p", config.LLM_CONFIG["top_p"]))
+            config.LLM_CONFIG["max_tokens"] = int(llm_settings.get("max_tokens", config.LLM_CONFIG["max_tokens"]))
+            config.LLM_CONFIG["presence_penalty"] = float(llm_settings.get("presence_penalty", config.LLM_CONFIG["presence_penalty"]))
+            config.LLM_CONFIG["frequency_penalty"] = float(llm_settings.get("frequency_penalty", config.LLM_CONFIG["frequency_penalty"]))
             # API 키는 파일에서 불러오기
             openrouter_api_key = self._load_openrouter_api_key()
             
@@ -436,7 +626,20 @@ class GameApp:
     # UI 컴포넌트 메서드 (ui_components 위임)
     def create_radar_chart(self, stats: Dict[str, float], deltas: Dict[str, float] = None) -> go.Figure:
         """6축 수치를 위한 radar chart 생성"""
-        return self.ui_components.create_radar_chart(stats, deltas)
+        i18n = get_i18n()
+        labels = {
+            "categories": [
+                i18n.get_text("stat_p_short", category="ui"),
+                i18n.get_text("stat_a_short", category="ui"),
+                i18n.get_text("stat_d_short", category="ui"),
+                i18n.get_text("stat_i_short", category="ui"),
+                i18n.get_text("stat_t_short", category="ui"),
+                i18n.get_text("stat_dep_short", category="ui"),
+            ],
+            "current_name": i18n.get_text("radar_current_label", category="ui"),
+            "delta_name": i18n.get_text("radar_delta_label", category="ui"),
+        }
+        return self.ui_components.create_radar_chart(stats, deltas, labels=labels)
     
     def create_event_notification(self, event_type: str, event_data: dict) -> str:
         """이벤트 알림 HTML 생성 (Gradio 호환)"""
@@ -450,6 +653,14 @@ class GameApp:
         if self.brain is None:
             return history, "**오류**: Brain이 초기화되지 않았습니다.", "", None, "", "", "", None, ""
         
+        # 전체 완료 시간 측정 시작
+        import time
+        total_start_time = time.time()
+        
+        i18n = get_i18n()
+        thought_label = i18n.get_text("thought_label", category="ui")
+        action_label = i18n.get_text("action_label", category="ui")
+        
         try:
             response = self.brain.generate_response(user_input)
         except Exception as e:
@@ -459,7 +670,27 @@ class GameApp:
             logger.error(f"Error traceback:\n{error_traceback}")
             logger.error(f"History type: {type(history)}, value: {history}")
             logger.error(f"User input: {user_input}")
-            return history, f"**오류 발생**: {str(e)}\n\n상세 정보는 콘솔 로그를 확인하세요.", "", None, "", "", "", None, ""
+            
+            # 사용자 공유용 에러 리포트(md) 생성
+            extra_context = {
+                "user_input": user_input,
+                "history_type": str(type(history)),
+                "history_length": len(history) if hasattr(history, "__len__") else "unknown",
+            }
+            report_path = self._write_error_report_md("process_turn", e, error_traceback, extra_context)
+            if report_path is not None:
+                user_msg = (
+                    f"**Error occurred**: {str(e)}\n\n"
+                    f"Please send the generated `{report_path.name}` file from the `error_logs` folder "
+                    f"in your program directory to the developer."
+                )
+            else:
+                user_msg = (
+                    f"**Error occurred**: {str(e)}\n\n"
+                    f"Please check the console logs for more details."
+                )
+            
+            return history, user_msg, "", None, "", "", "", None, ""
         
         # 응답 파싱
         speech = response.get("speech", "")
@@ -473,6 +704,21 @@ class GameApp:
         multiplier = response.get("multiplier", 1.0)
         final_delta = response.get("final_delta", {})
         new_badge = response.get("new_badge")
+        badges_list_raw = response.get("badges", [])
+        if isinstance(badges_list_raw, (list, set, tuple)):
+            badges_list = list(badges_list_raw)
+        elif badges_list_raw:
+            badges_list = [str(badges_list_raw)]
+        else:
+            badges_list = []
+
+        # 최근 턴 정보 저장 (순간 저장용)
+        self.last_speech = speech or ""
+        self.last_thought = thought or ""
+        self.last_action = action_speech or ""
+        self.last_relationship = relationship or ""
+        self.last_mood = mood or ""
+        self.last_badges = badges_list
         
         # 히스토리 업데이트
         # Gradio 6.x Chatbot은 딕셔너리 형식 [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]을 사용함
@@ -506,10 +752,15 @@ class GameApp:
         output_lines = [
             f"**{speech}**",
             "",
-            f"*속마음: {thought}*",
-            "",
-            f"감정: {emotion} | 기분: {mood} | 관계: {relationship}"
         ]
+        
+        if thought:
+            output_lines.extend([
+                f"*{thought_label}: {thought}*",
+                "",
+            ])
+        
+        output_lines.append(f"감정: {emotion} | 기분: {mood} | 관계: {relationship}")
         
         if gacha_tier != "normal":
             tier_emoji = {"jackpot": "🎰", "surprise": "✨", "critical": "💥"}.get(gacha_tier, "🎲")
@@ -610,13 +861,7 @@ class GameApp:
         self.previous_relationship = relationship
         
         # 이전 뱃지 목록 업데이트 (현재 뱃지 목록 저장)
-        current_badges = response.get('badges', [])
-        if isinstance(current_badges, list):
-            self.previous_badges = set(current_badges)
-        elif isinstance(current_badges, set):
-            self.previous_badges = current_badges.copy()
-        else:
-            self.previous_badges = set()
+        self.previous_badges = set(badges_list)
         
         # Radar chart 생성 (이전 차트가 있으면 먼저 반환하고, 새 차트 생성 후 업데이트)
         # 이전 차트를 먼저 반환하여 로딩 중에도 차트가 보이도록 함
@@ -631,27 +876,41 @@ class GameApp:
         new_radar_chart = self.create_radar_chart(stats, final_delta)
         self.current_chart = new_radar_chart  # 다음 번을 위해 저장
         
-        # 작은 글씨로 6축 수치와 delta 표시 (2열 레이아웃)
+        # 작은 글씨로 6축 수치와 delta 표시 (2열 레이아웃) - i18n 적용
+        stats_axis_title = i18n.get_text("stats_axis_title", category="ui")
+        stats_change_title = i18n.get_text("stats_change_title", category="ui")
+        reaction_label = i18n.get_text("reaction_level_label", category="ui")
+        relationship_label = i18n.get_text("relationship_label", category="ui")
+        mood_label = i18n.get_text("mood_label", category="ui")
+        badge_label = i18n.get_text("badge_label", category="ui")
+        badge_none = i18n.get_text("badge_none", category="ui")
+        p_label = i18n.get_text("stat_p_short", category="ui")
+        a_label = i18n.get_text("stat_a_short", category="ui")
+        d_label = i18n.get_text("stat_d_short", category="ui")
+        i_label = i18n.get_text("stat_i_short", category="ui")
+        t_label = i18n.get_text("stat_t_short", category="ui")
+        dep_label = i18n.get_text("stat_dep_short", category="ui")
+
         stats_text = f"""
 <div style="font-size: 0.85em; color: #666;">
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
 <div>
-<strong>6축 수치:</strong><br>
-P (쾌락): {stats.get('P', 0):.0f} {format_delta('P')}<br>
-A (각성): {stats.get('A', 0):.0f} {format_delta('A')}<br>
-D (지배): {stats.get('D', 0):.0f} {format_delta('D')}<br>
+<strong>{stats_axis_title}:</strong><br>
+{p_label}: {stats.get('P', 0):.0f} {format_delta('P')}<br>
+{a_label}: {stats.get('A', 0):.0f} {format_delta('A')}<br>
+{d_label}: {stats.get('D', 0):.0f} {format_delta('D')}<br>
 </div>
 <div>
-<strong>변화량:</strong><br>
-I (친밀): {stats.get('I', 0):.0f} {format_delta('I')}<br>
-T (신뢰): {stats.get('T', 0):.0f} {format_delta('T')}<br>
-Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
+<strong>{stats_change_title}:</strong><br>
+{i_label}: {stats.get('I', 0):.0f} {format_delta('I')}<br>
+{t_label}: {stats.get('T', 0):.0f} {format_delta('T')}<br>
+{dep_label}: {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
 </div>
 </div>
 <br>
-<strong>반응 정도:</strong> {reaction_indicators} (x{multiplier:.1f})<br>
-<strong>관계:</strong> {relationship} | <strong>기분:</strong> {mood}<br>
-<strong>뱃지:</strong> {', '.join(response.get('badges', [])) or 'None'}
+<strong>{reaction_label}:</strong> {reaction_indicators} (x{multiplier:.1f})<br>
+<strong>{relationship_label}:</strong> {relationship} | <strong>{mood_label}:</strong> {mood}<br>
+<strong>{badge_label}:</strong> {', '.join(badges_list) or badge_none}
 </div>
 """
         
@@ -660,12 +919,28 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
         visual_change_detected = response.get("visual_change_detected", False)
         image_generation_reasons = response.get("image_generation_reasons", [])
         new_image_generated = False  # 새 이미지가 생성되었는지 추적
+
+        # 첫 턴 또는 아직 한 번도 이미지가 생성되지 않은 경우, 강제로 한 번은 이미지 생성 시도
+        if config.IMAGE_MODE_ENABLED and self.current_image is None and not visual_change_detected:
+            visual_change_detected = True
+            if image_generation_reasons is None:
+                image_generation_reasons = []
+            image_generation_reasons.append("첫 턴 또는 초기 상태: 아직 이미지가 없어 강제로 한 번 생성합니다.")
         
         if visual_change_detected and config.IMAGE_MODE_ENABLED:
-            # LLM 모델 offload를 위한 2초 대기
-            import time
-            logger.info("Waiting 2 second for LLM model offload...")
-            time.sleep(2.0)
+            # LLM Provider에 따라 모델 offload 대기 여부 결정
+            env_config = self.load_env_config()
+            llm_settings = env_config.get("llm_settings", {})
+            provider = llm_settings.get("provider", "ollama")
+
+            if provider == "ollama":
+                # 로컬 Ollama 모델을 VRAM에서 내리기 위한 대기
+                import time
+                logger.info("Waiting 2 second for LLM model offload... (provider=ollama)")
+                time.sleep(2.0)
+            else:
+                # OpenRouter 등 외부 API 사용 시에는 대기 불필요
+                logger.info(f"Skip LLM offload wait (provider={provider})")
             
             # 이미지 생성 이유 로그 출력
             if image_generation_reasons:
@@ -682,18 +957,49 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
             try:
                 # ComfyClient 초기화 (아직 안 되어 있으면)
                 if self.comfy_client is None:
-                    # ComfyUI 설정 로드
-                    env_config = self.load_env_config()
+                    # ComfyUI 설정 로드 (이미 불러온 env_config 재사용)
                     comfyui_settings = env_config.get("comfyui_settings", {})
                     server_port = comfyui_settings.get("server_port", 8000)
-                    workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
-                    model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
-                    vae_name = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
-                    clip_name = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
-                    steps = comfyui_settings.get("steps", 9)
-                    cfg = comfyui_settings.get("cfg", 1.0)
-                    sampler_name = comfyui_settings.get("sampler_name", "euler")
-                    scheduler = comfyui_settings.get("scheduler", "simple")
+                    style = comfyui_settings.get("style", "QWEN/Z-image")
+                    use_lora = comfyui_settings.get("use_lora", False)
+                    # 스타일별 설정 (하위 호환성을 위해 공통 키도 함께 확인)
+                    if style == "SDXL":
+                        workflow_path = comfyui_settings.get("workflow_path_sdxl") or config.COMFYUI_CONFIG["workflow_path"]
+                        model_name = comfyui_settings.get("model_name_sdxl") or "Zeniji_mix_ZiT_v1.safetensors"
+                        vae_name = comfyui_settings.get("vae_name_sdxl") or "zImage_vae.safetensors"
+                        clip_name = comfyui_settings.get("clip_name_sdxl") or "zImage_textEncoder.safetensors"
+                        if use_lora:
+                            lora_name = comfyui_settings.get("lora_name_sdxl") or ""
+                            lora_strength_model = comfyui_settings.get("lora_strength_model_sdxl")
+                            if lora_strength_model in (None, ""):
+                                lora_strength_model = 1.0
+                        else:
+                            lora_name = None
+                            lora_strength_model = None
+                        steps = comfyui_settings.get("steps_sdxl") or 9
+                        cfg = comfyui_settings.get("cfg_sdxl") or 1.0
+                        sampler_name = comfyui_settings.get("sampler_name_sdxl") or "euler"
+                        scheduler = comfyui_settings.get("scheduler_sdxl") or "simple"
+                    else:
+                        workflow_path = comfyui_settings.get("workflow_path_qwen") or config.COMFYUI_CONFIG["workflow_path"]
+                        model_name = comfyui_settings.get("model_name_qwen") or "Zeniji_mix_ZiT_v1.safetensors"
+                        vae_name = comfyui_settings.get("vae_name_qwen") or "zImage_vae.safetensors"
+                        clip_name = comfyui_settings.get("clip_name_qwen") or "zImage_textEncoder.safetensors"
+                        if use_lora:
+                            lora_name = comfyui_settings.get("lora_name_qwen") or ""
+                            lora_strength_model = comfyui_settings.get("lora_strength_model_qwen")
+                            if lora_strength_model in (None, ""):
+                                lora_strength_model = 1.0
+                        else:
+                            lora_name = None
+                            lora_strength_model = None
+                        steps = comfyui_settings.get("steps_qwen") or 9
+                        cfg = comfyui_settings.get("cfg_qwen") or 1.0
+                        sampler_name = comfyui_settings.get("sampler_name_qwen") or "euler"
+                        scheduler = comfyui_settings.get("scheduler_qwen") or "simple"
+                    quality_tag = comfyui_settings.get("quality_tag", "")
+                    negative_prompt = comfyui_settings.get("negative_prompt", "")
+                    upscale_model_name = comfyui_settings.get("upscale_model_name", "4x-UltraSharp.pth")
                     server_address = f"127.0.0.1:{server_port}"
                     self.comfy_client = ComfyClient(
                         server_address=server_address,
@@ -704,9 +1010,28 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                         sampler_name=sampler_name,
                         scheduler=scheduler,
                         vae_name=vae_name,
-                        clip_name=clip_name
+                        clip_name=clip_name,
+                        style=style,
+                        quality_tag=quality_tag,
+                        negative_prompt=negative_prompt,
+                        upscale_model_name=upscale_model_name,
+                        lora_name=lora_name,
+                        lora_strength_model=lora_strength_model
                     )
-                    logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
+                    # LoRA 사용 여부에 따라 로그 메시지 분리
+                    if lora_name is not None:
+                        logger.info(
+                            f"ComfyClient initialized: {server_address}, "
+                            f"workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, "
+                            f"LoRA enabled: name={lora_name}, strength_model={lora_strength_model}, "
+                            f"steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}"
+                        )
+                    else:
+                        logger.info(
+                            f"ComfyClient initialized: {server_address}, "
+                            f"workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, "
+                            f"LoRA disabled, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}"
+                        )
                 
                 # 설정에서 appearance와 나이 가져오기
                 saved_config = self.load_config()
@@ -723,10 +1048,14 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                 visual_prompt = response.get("visual_prompt", "")
                 background = response.get("background", "")
                 
+                # visual_prompt가 리스트인 경우 문자열로 변환
+                if isinstance(visual_prompt, list):
+                    visual_prompt = ", ".join(str(item) for item in visual_prompt)
+                
                 # visual_prompt가 없으면 기본값 사용
                 if not visual_prompt:
                     visual_prompt = f"background: {background}, expression: {emotion}, looking at viewer"
-                elif background and "background:" not in visual_prompt.lower():
+                elif background and isinstance(visual_prompt, str) and "background:" not in visual_prompt.lower():
                     # visual_prompt에 background가 없으면 추가
                     visual_prompt = f"{visual_prompt}, background: {background}"
                 
@@ -747,8 +1076,6 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                     image = Image.open(io.BytesIO(image_bytes))
                     # 현재 이미지로 저장
                     self.current_image = image
-                    # 원본 이미지를 바로 파일로 저장
-                    self._save_generated_image(image, turn_number)
                     # 마지막 이미지 생성 정보 저장 (재시도용)
                     self.last_image_generation_info = {
                         "visual_prompt": visual_prompt,
@@ -757,9 +1084,9 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                     new_image_generated = True  # 새 이미지 생성됨
                     logger.info("Image generated successfully")
                 else:
-                    logger.warning("Failed to generate image (returned None)")
+                    logger.warning("⚠️ 이미지 생성 실패 (None 반환) - 대화는 계속 진행됩니다")
             except Exception as e:
-                logger.error(f"Failed to generate image: {e}")
+                logger.error(f"⚠️ 이미지 생성 중 오류 발생: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
                 # 이미지 생성 실패해도 대화는 계속 진행
@@ -768,26 +1095,50 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
         if not new_image_generated:
             image = self.current_image
         
+        # 전체 완료 시간 측정 완료
+        total_elapsed_time = time.time() - total_start_time
+        
+        # LLM 응답 시간 가져오기
+        llm_time = getattr(self.brain, '_last_llm_time', 0.0)
+        
+        # ComfyUI 응답 시간 가져오기 (이미지 생성이 있었을 때만)
+        comfyui_time = 0.0
+        if self.comfy_client is not None:
+            comfyui_time = getattr(self.comfy_client, '_last_comfyui_time', 0.0)
+        
+        # 마지막 로그에 모든 시간 정보 표시
+        logger.info("=" * 80)
+        logger.info("⏱️ [전체 완료 시간 요약]")
+        logger.info("=" * 80)
+        logger.info(f"  LLM 응답 시간: {llm_time:.2f}s")
+        if comfyui_time > 0:
+            logger.info(f"  ComfyUI 응답 시간: {comfyui_time:.2f}s")
+        else:
+            logger.info(f"  ComfyUI 응답 시간: (이미지 생성 없음)")
+        logger.info(f"  전체 완료 시간: {total_elapsed_time:.2f}s")
+        logger.info("=" * 80)
+        
         choices_text = "다음 대사를 입력하세요."
-        thought_text = f"💭 **속마음**: {thought}" if thought else ""
-        action_text = f"🎭 **행동**: {action_speech}" if action_speech else ""
+        thought_text = f"**{thought_label}**: {thought}" if thought else ""
+        action_text = f"**{action_label}**: {action_speech}" if action_speech else ""
         
         return history, output_text, stats_text, image, choices_text, thought_text, action_text, radar_chart, event_notification
     
     def retry_image_generation(self) -> Tuple[Optional[Image.Image], str]:
         """마지막 이미지 생성 정보를 재사용하여 이미지 재생성"""
+        i18n = get_i18n()
         if not self.last_image_generation_info:
-            return None, "⚠️ 재생성할 이미지 정보가 없습니다."
+            return None, i18n.get_text("msg_retry_no_info", category="ui")
         
         if self.comfy_client is None:
-            return None, "⚠️ ComfyUI 클라이언트가 초기화되지 않았습니다."
+            return None, i18n.get_text("msg_comfyui_not_initialized", category="ui")
         
         try:
             visual_prompt = self.last_image_generation_info.get("visual_prompt", "")
             appearance = self.last_image_generation_info.get("appearance", "")
             
             if not visual_prompt:
-                return None, "⚠️ 저장된 visual_prompt가 없습니다."
+                return None, i18n.get_text("msg_no_visual_prompt", category="ui")
             
             logger.info("🔄 이미지 재생성 시작 (저장된 visual_prompt 재사용)")
             logger.info(f"  appearance: {appearance[:50] if appearance else 'None'}...")
@@ -805,18 +1156,16 @@ Dep (의존): {stats.get('Dep', 0):.0f} {format_delta('Dep')}<br>
                 image = Image.open(io.BytesIO(image_bytes))
                 # 현재 이미지로 업데이트
                 self.current_image = image
-                # 이미지 파일로 저장 (재생성 이미지는 turn_number 없이 저장)
-                self._save_generated_image(image, None)
                 logger.info("✅ 이미지 재생성 완료")
-                return image, "✅ 이미지가 재생성되었습니다."
+                return image, i18n.get_text("msg_retry_success", category="ui")
             else:
                 logger.warning("이미지 재생성 실패 (None 반환)")
-                return None, "❌ 이미지 재생성에 실패했습니다."
+                return None, i18n.get_text("msg_retry_failed", category="ui")
         except Exception as e:
             logger.error(f"이미지 재생성 중 오류 발생: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            return None, f"❌ 이미지 재생성 중 오류: {str(e)}"
+            return None, i18n.get_text("retry_error", category="ui", error=str(e))
     
     def create_ui(self):
         """Gradio UI 생성 - UIBuilder로 위임"""

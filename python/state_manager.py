@@ -156,12 +156,13 @@ class DialogueHistory:
             return "(첫 대화입니다)"
         
         lines = []
-        for turn in self.turns:
+        for i, turn in enumerate(self.turns):
             lines.append(f"[턴 {turn.turn_number}]")
             lines.append(f"플레이어: {turn.player_input}")
             lines.append(f"캐릭터 (대사): {turn.character_speech}")
             lines.append(f"캐릭터 (속마음): {turn.character_thought}")
-            if turn.visual_prompt:
+            # visual_prompt는 마지막 1턴 것만 포함
+            if i == len(self.turns) - 1 and turn.visual_prompt:
                 lines.append(f"시각적 묘사: {turn.visual_prompt}")
             if turn.background:
                 lines.append(f"배경: {turn.background}")

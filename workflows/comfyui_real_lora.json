@@ -8,7 +8,7 @@
       "scheduler": "simple",
       "denoise": 1,
       "model": [
-        "16",
+        "28",
         0
       ],
       "positive": [
@@ -73,7 +73,7 @@
   },
   "9": {
     "inputs": {
-      "filename_prefix": "25-12-14",
+      "filename_prefix": "ZEMS",
       "images": [
         "8",
         0
@@ -86,8 +86,8 @@
   },
   "13": {
     "inputs": {
-      "width": 768,
-      "height": 1024,
+      "width": 960,
+      "height": 1280,
       "batch_size": 1
     },
     "class_type": "EmptySD3LatentImage",
@@ -123,6 +123,25 @@
     "class_type": "CLIPLoader",
     "_meta": {
       "title": "CLIP 로드"
+    }
+  },
+  "28": {
+    "inputs": {
+      "lora_name": "ZiT_K_beauty_A.safetensors",
+      "strength_model": 1,
+      "strength_clip": 1,
+      "model": [
+        "16",
+        0
+      ],
+      "clip": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA 로드"
     }
   }
 }

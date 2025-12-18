@@ -23,7 +23,7 @@ class GameInitializer:
         app_instance,
         player_name, player_gender,
         char_name, char_age, char_gender,
-        appearance, personality,
+        appearance, personality, speech_style,
         p_val, a_val, d_val, i_val, t_val, dep_val,
         initial_context, initial_background
     ) -> Tuple[str, str, list, str, str, str, str, str, str, Any, Any, Any]:
@@ -70,7 +70,8 @@ class GameInitializer:
                 "age": int(char_age) if char_age else 21,
                 "gender": char_gender or i18n.get_default("character_gender"),
                 "appearance": appearance or "",
-                "personality": personality or ""
+                "personality": personality or "",
+                "speech_style": speech_style or i18n.get_default("character_speech_style")
             },
             "initial_stats": {
                 "P": float(p_val),
@@ -171,78 +172,8 @@ class GameInitializer:
             first_input = i18n.get_text("msg_first_dialogue_input", category="ui") if i18n.get_text("msg_first_dialogue_input", category="ui") != "msg_first_dialogue_input" else ("Start conversation" if language == "en" else "대화 시작")
             history, output_text, stats_text, image, choices_text, thought_text, action_text, radar_chart, _ = app_instance.process_turn(first_input, [])
             
-            # 첫 화면 이미지 생성 (appearance + background)
-            initial_image = None
-            if config.IMAGE_MODE_ENABLED:
-                try:
-                    # ComfyClient 초기화 (아직 안 되어 있으면)
-                    if app_instance.comfy_client is None:
-                        # ComfyUI 설정 로드
-                        env_config = app_instance.load_env_config()
-                        comfyui_settings = env_config.get("comfyui_settings", {})
-                        server_port = comfyui_settings.get("server_port", 8000)
-                        workflow_path = comfyui_settings.get("workflow_path", config.COMFYUI_CONFIG["workflow_path"])
-                        model_name = comfyui_settings.get("model_name", "Zeniji_mix_ZiT_v1.safetensors")
-                        vae_name = comfyui_settings.get("vae_name", "zImage_vae.safetensors")
-                        clip_name = comfyui_settings.get("clip_name", "zImage_textEncoder.safetensors")
-                        steps = comfyui_settings.get("steps", 9)
-                        cfg = comfyui_settings.get("cfg", 1.0)
-                        sampler_name = comfyui_settings.get("sampler_name", "euler")
-                        scheduler = comfyui_settings.get("scheduler", "simple")
-                        server_address = f"127.0.0.1:{server_port}"
-                        app_instance.comfy_client = ComfyClient(
-                            server_address=server_address,
-                            workflow_path=workflow_path,
-                            model_name=model_name,
-                            steps=steps,
-                            cfg=cfg,
-                            sampler_name=sampler_name,
-                            scheduler=scheduler,
-                            vae_name=vae_name,
-                            clip_name=clip_name
-                        )
-                        logger.info(f"ComfyClient initialized: {server_address}, workflow: {workflow_path}, model: {model_name}, vae: {vae_name}, clip: {clip_name}, steps: {steps}, cfg: {cfg}, sampler: {sampler_name}, scheduler: {scheduler}")
-                    
-                    # appearance와 background를 조합해서 이미지 생성
-                    appearance = config_data["character"].get("appearance", "")
-                    char_age = config_data["character"].get("age", 21)
-                    background = config_data.get("initial_background", "college library table, evening light")
-                    
-                    # appearance에 나이 추가 (이미지 생성용)
-                    if appearance and f"{char_age} years old" not in appearance.lower():
-                        appearance = f"{char_age} years old, {appearance}".strip()
-                    elif not appearance:
-                        appearance = f"{char_age} years old"
-                    
-                    # visual_prompt 생성: background를 포함한 시각적 묘사
-                    visual_prompt = f"background: {background}, expression: neutral, looking at viewer"
-                    
-                    logger.info(f"Generating initial image with appearance: {appearance[:50]}... and background: {background}")
-                    image_bytes = app_instance.comfy_client.generate_image(
-                        visual_prompt=visual_prompt,
-                        appearance=appearance,
-                        seed=-1
-                    )
-                    
-                    if image_bytes:
-                        # PIL Image로 변환
-                        initial_image = Image.open(io.BytesIO(image_bytes))
-                        # 현재 이미지로 저장
-                        app_instance.current_image = initial_image
-                        # 이미지 파일로 저장 (초기 이미지는 turn_number 없이 저장)
-                        app_instance._save_generated_image(initial_image, None)
-                        # 마지막 이미지 생성 정보 저장 (재시도용)
-                        app_instance.last_image_generation_info = {
-                            "visual_prompt": visual_prompt,
-                            "appearance": appearance
-                        }
-                        logger.info("Initial image generated successfully")
-                    else:
-                        logger.warning("Failed to generate initial image")
-                except Exception as e:
-                    logger.error(f"Failed to generate initial image: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+            # 초기 이미지는 첫 턴에서 생성된 이미지를 그대로 사용
+            initial_image = image
             
             # 초기 차트 생성 (첫 대화 후 상태로)
             if app_instance.brain is not None:

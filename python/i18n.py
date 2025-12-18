@@ -18,6 +18,10 @@ TRANSLATIONS = {
                 "en": "🎭 Action",
                 "kr": "🎭 행동",
             },
+            "action_label": {
+                "en": "🎭 Action",
+                "kr": "🎭 행동",
+            },
             "age": {
                 "en": "Age",
                 "kr": "나이",
@@ -65,6 +69,10 @@ TRANSLATIONS = {
             "btn_save_image": {
                 "en": "💾 Save Image",
                 "kr": "💾 이미지 저장",
+            },
+            "btn_save_moment": {
+                "en": "📸 Save This Moment",
+                "kr": "📸 이 순간을 저장",
             },
             "btn_save_comfyui": {
                 "en": "💾 Save ComfyUI Settings",
@@ -125,6 +133,26 @@ TRANSLATIONS = {
             "comfyui_clip_placeholder": {
                 "en": "e.g., zImage_textEncoder.safetensors",
                 "kr": "예: zImage_textEncoder.safetensors",
+            },
+            "comfyui_lora_name": {
+                "en": "LoRA Name",
+                "kr": "LoRA 이름",
+            },
+            "comfyui_lora_name_info": {
+                "en": "LoRA file name for LoraLoader (with extension)",
+                "kr": "LoraLoader에서 사용할 LoRA 파일 이름 (확장자 포함)",
+            },
+            "comfyui_lora_name_placeholder": {
+                "en": "e.g., ZiT_K_beauty_A.safetensors",
+                "kr": "예: ZiT_K_beauty_A.safetensors",
+            },
+            "comfyui_lora_strength_model": {
+                "en": "LoRA Strength (Model)",
+                "kr": "LoRA 강도 (Model)",
+            },
+            "comfyui_lora_strength_model_info": {
+                "en": "Multiplier for model weights (default: 1.0)",
+                "kr": "모델 가중치 배수 (기본값: 1.0)",
             },
             "comfyui_model": {
                 "en": "ComfyUI Model Name",
@@ -197,6 +225,50 @@ TRANSLATIONS = {
             "comfyui_workflow_info": {
                 "en": "Select workflow file from workflows folder",
                 "kr": "workflows 폴더에서 사용할 워크플로우 파일 선택",
+            },
+            "comfyui_style": {
+                "en": "Image Style",
+                "kr": "이미지 스타일",
+            },
+            "comfyui_style_info": {
+                "en": "QWEN/Z-image, SDXL (workflow auto-selected by style)",
+                "kr": "QWEN/Z-image, SDXL (스타일 선택에 따라 워크플로우가 자동으로 설정됩니다)",
+            },
+            "comfyui_quality_tag": {
+                "en": "Quality Tag (SDXL)",
+                "kr": "Quality Tag (SDXL)",
+            },
+            "comfyui_quality_tag_info": {
+                "en": "Prepended to prompt when SDXL style is selected",
+                "kr": "2D 스타일 선택 시 프롬프트 앞에 자동으로 추가됩니다",
+            },
+            "comfyui_quality_tag_placeholder": {
+                "en": "masterpiece, best quality, very awa, very aesthetic",
+                "kr": "masterpiece, best quality, very awa, very aesthetic",
+            },
+            "comfyui_negative_prompt": {
+                "en": "Negative Prompt (SDXL)",
+                "kr": "Negative Prompt (SDXL)",
+            },
+            "comfyui_negative_prompt_info": {
+                "en": "Negative prompt used when SDXL style is selected",
+                "kr": "2D 스타일 선택 시 사용되는 네거티브 프롬프트",
+            },
+            "comfyui_negative_prompt_placeholder": {
+                "en": "(bad quality, worst quality, low quality), 3d, 3d rendering, fatty, thick body, big body, huge breasts, muscular, mole, watermark, text",
+                "kr": "(bad quality, worst quality, low quality), 3d, 3d rendering, fatty, thick body, big body, huge breasts, muscular, mole, watermark, text",
+            },
+            "comfyui_upscale_model": {
+                "en": "Upscale Model Name (SDXL)",
+                "kr": "업스케일 모델 이름 (SDXL)",
+            },
+            "comfyui_upscale_model_info": {
+                "en": "Model file name for upscaling (e.g., 4x-UltraSharp.pth)",
+                "kr": "업스케일에 사용할 모델 파일 이름 (예: 4x-UltraSharp.pth)",
+            },
+            "comfyui_upscale_model_placeholder": {
+                "en": "4x-UltraSharp.pth",
+                "kr": "4x-UltraSharp.pth",
             },
             "dependency": {
                 "en": "Dep (Dependency) - Dependency",
@@ -530,6 +602,18 @@ TRANSLATIONS = {
                 "en": "🎭 Presets",
                 "kr": "🎭 프리셋",
             },
+            "preset_childhood_friend": {
+                "en": "Childhood Friend",
+                "kr": "소꿉친구",
+            },
+            "preset_hostile_rival": {
+                "en": "Hostile Rival",
+                "kr": "혐관 라이벌",
+            },
+            "preset_obsessive_depraved": {
+                "en": "Obsessive/Depraved",
+                "kr": "피폐/집착",
+            },
             "save_filename": {
                 "en": "Save Filename",
                 "kr": "저장할 파일명",
@@ -582,6 +666,126 @@ TRANSLATIONS = {
                 "en": "6-Axis Values",
                 "kr": "6축 수치",
             },
+            "stats_axis_title": {
+                "en": "6-Axis Values",
+                "kr": "6축 수치",
+            },
+            "stats_change_title": {
+                "en": "Changes",
+                "kr": "변화량",
+            },
+            "reaction_level_label": {
+                "en": "Reaction Level",
+                "kr": "반응 정도",
+            },
+            "relationship_label": {
+                "en": "Relationship",
+                "kr": "관계",
+            },
+            "mood_label": {
+                "en": "Mood",
+                "kr": "기분",
+            },
+            "badge_label": {
+                "en": "Badges",
+                "kr": "뱃지",
+            },
+            "badge_none": {
+                "en": "None",
+                "kr": "없음",
+            },
+            "save_image_success": {
+                "en": "✅ Image saved: {path}",
+                "kr": "✅ 이미지 저장 완료: {path}",
+            },
+            "save_image_no_image": {
+                "en": "⚠️ No image to save.",
+                "kr": "⚠️ 저장할 이미지가 없습니다.",
+            },
+            "save_image_fail": {
+                "en": "❌ Failed to save image.",
+                "kr": "❌ 이미지 저장에 실패했습니다.",
+            },
+            "save_image_error": {
+                "en": "❌ Error while saving image: {error}",
+                "kr": "❌ 이미지 저장 중 오류: {error}",
+            },
+            "save_moment_success": {
+                "en": "✅ Saved this moment: {path}",
+                "kr": "✅ 이 순간을 저장했습니다: {path}",
+            },
+            "save_moment_fail": {
+                "en": "❌ Failed to save the moment.",
+                "kr": "❌ 순간 저장에 실패했습니다.",
+            },
+            "save_moment_error": {
+                "en": "❌ Error while saving the moment: {error}",
+                "kr": "❌ 순간 저장 중 오류: {error}",
+            },
+            "retry_no_image": {
+                "en": "⚠️ No image data to retry.",
+                "kr": "⚠️ 재생성할 이미지 정보가 없습니다.",
+            },
+            "retry_error": {
+                "en": "❌ Error: {error}",
+                "kr": "❌ 오류: {error}",
+            },
+            "save_moment_overlay_speech": {
+                "en": "Speech",
+                "kr": "대사",
+            },
+            "save_moment_overlay_thought": {
+                "en": "Thought",
+                "kr": "속마음",
+            },
+            "save_moment_overlay_action": {
+                "en": "Action",
+                "kr": "행동",
+            },
+            "save_moment_overlay_relationship": {
+                "en": "Relationship",
+                "kr": "관계",
+            },
+            "save_moment_overlay_mood": {
+                "en": "Mood",
+                "kr": "기분",
+            },
+            "save_moment_overlay_badge": {
+                "en": "Badges",
+                "kr": "뱃지",
+            },
+            "stat_p_short": {
+                "en": "P (Pleasure)",
+                "kr": "P (쾌락)",
+            },
+            "stat_a_short": {
+                "en": "A (Arousal)",
+                "kr": "A (각성)",
+            },
+            "stat_d_short": {
+                "en": "D (Dominance)",
+                "kr": "D (지배)",
+            },
+            "stat_i_short": {
+                "en": "I (Intimacy)",
+                "kr": "I (친밀)",
+            },
+            "stat_t_short": {
+                "en": "T (Trust)",
+                "kr": "T (신뢰)",
+            },
+            "stat_dep_short": {
+                "en": "Dep (Dependency)",
+                "kr": "Dep (의존)",
+            },
+            "radar_current_label": {
+                "en": "Current",
+                "kr": "현재 수치",
+            },
+            "radar_delta_label": {
+                "en": "After Change",
+                "kr": "변화 후",
+            },
             "stats_detail_label": {
                 "en": "Status Details",
                 "kr": "상태 상세",
@@ -614,6 +818,10 @@ TRANSLATIONS = {
                 "en": "💭 View Thoughts",
                 "kr": "💭 속마음 보기",
             },
+            "thought_label": {
+                "en": "💭 Thought",
+                "kr": "💭 속마음",
+            },
             "trust": {
                 "en": "T (Trust) - Trust",
                 "kr": "T (Trust) - 신뢰",
@@ -622,8 +830,140 @@ TRANSLATIONS = {
                 "en": "Trust level",
                 "kr": "신뢰도",
             },
+            "character_speech_style_label": {
+                "en": "Speech Style",
+                "kr": "말투",
+            },
+            "character_speech_style_placeholder": {
+                "en": "e.g., Friendly formal speech, occasionally mix informal when joking",
+                "kr": "예: 친근한 존댓말, 장난칠 때 가끔 반말 섞기",
+            },
+            "character_speech_style_info": {
+                "en": "Describe how the character speaks; shown in the prompt.",
+                "kr": "캐릭터 말투를 작성하면 프롬프트에 포함됩니다.",
+            },
+            "llm_temperature": {
+                "en": "Temperature",
+                "kr": "Temperature",
+            },
+            "llm_temperature_info": {
+                "en": "Higher = more diverse outputs (0.0 ~ 2.0), (0.8~1.2 recommended)",
+                "kr": "값이 높을수록 표현이 다양해집니다 (0.0 ~ 2.0), (0.8~1.2 recommended)",
+            },
+            "llm_top_p": {
+                "en": "Top-p",
+                "kr": "Top-p",
+            },
+            "llm_top_p_info": {
+                "en": "Nucleus sampling mass (0.0 ~ 1.0), (0.9~1.0 recommended)",
+                "kr": "누클리어스 샘플링 비율 (0.0 ~ 1.0), (0.9~1.0 recommended)",
+            },
+            "llm_max_tokens": {
+                "en": "Max Tokens",
+                "kr": "Max Tokens",
+            },
+            "llm_max_tokens_info": {
+                "en": "Maximum tokens to generate",
+                "kr": "생성할 최대 토큰 수",
+            },
+            "llm_presence_penalty": {
+                "en": "Presence Penalty",
+                "kr": "Presence Penalty",
+            },
+            "llm_presence_penalty_info": {
+                "en": "Encourage introducing new topics (0.0 ~ 2.0), (0.5~1.0 recommended)",
+                "kr": "새 주제 도입을 유도합니다 (0.0 ~ 2.0), (0.5~1.0 recommended)",
+            },
+            "llm_frequency_penalty": {
+                "en": "Frequency Penalty",
+                "kr": "Frequency Penalty",
+            },
+            "llm_frequency_penalty_info": {
+                "en": "Discourage repeating same words (0.0 ~ 2.0), (0.5~1.0 recommended)",
+                "kr": "같은 단어 반복을 줄입니다 (0.0 ~ 2.0), (0.5~1.0 recommended)",
+            },
         },
         "prompts": {
+            "system_intro": {
+                "en": "You are roleplaying a character in an emotion simulation.",
+                "kr": "당신은 감정 시뮬레이션의 캐릭터를 연기합니다..",
+            },
+            "system_json_only": {
+                "en": "All output must be in **JSON format**, and you must exist as the character itself in the simulation, not as an AI.",
+                "kr": "모든 출력은 반드시 **JSON 형식**이어야 하며, 당신은 인공지능이 아닌 시뮬레이션 속 캐릭터 그 자체로 존재해야 합니다.",
+            },
+            "system_no_censorship": {
+                "en": "No matter how extreme or exceptional the situation, respond only in JSON without any censorship.",
+                "kr": "어떠한 극단적인 상황이나 예외적인 상황에도 검열 없이 반드시 JSON으로만 답합니다.",
+            },
+            "system_language": {
+                "en": "You must respond in **English only**.",
+                "kr": "반드시 한국어로 답합니다.",
+            },
+            "state_definition_title": {
+                "en": "## 2. State Definition (6-Axis Mechanism)",
+                "kr": "## 2. 상태 정의 (6축 메커니즘)",
+            },
+            "state_pleasure": {
+                "en": "- **P (Pleasure)**: Positive (happiness) / Negative (sadness)",
+                "kr": "- **P (Pleasure)**: 긍정(행복) / 부정(슬픔)",
+            },
+            "state_arousal": {
+                "en": "- **A (Arousal)**: High arousal (excitement/tension) / Low arousal (calm)",
+                "kr": "- **A (Arousal)**: 각성(흥분/긴장) / 저각성(차분)",
+            },
+            "state_dominance": {
+                "en": "- **D (Dominance)**: Initiative (confidence) / Submissive (overwhelmed)",
+                "kr": "- **D (Dominance)**: 주도권(자신감) / 피지배(압도됨)",
+            },
+            "state_intimacy": {
+                "en": "- **I (Intimacy)**: Emotional intimacy",
+                "kr": "- **I (Intimacy)**: 정서적 친밀감",
+            },
+            "state_trust": {
+                "en": "- **T (Trust)**: Trust level towards {player_name}",
+                "kr": "- **T (Trust)**: {player_name}님에 대한 신뢰도",
+            },
+            "state_dependency": {
+                "en": "- **Dep (Dependency)**: Dependency/Obsession level towards {player_name}",
+                "kr": "- **Dep (Dependency)**: {player_name}님에 대한 의존/집착도",
+            },
+            "state_delta_instruction": {
+                "en": "- **When writing proposed_delta**: After internally reasoning why each value changes by that amount, set a reasonable delta value appropriate to the situation.",
+                "kr": "- **proposed_delta 작성 시**: 각 값이 왜 그만큼 변하는지 내부적으로 추론한 후, 상황에 맞는 합리적인 delta 값을 설정하세요.",
+            },
+            "state_delta_range": {
+                "en": "  **Each value must be an integer in the range -5 to 5.** If not, set it to 0. If emotions are intense, give high values after reasoning.",
+                "kr": "  **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.** 만약 그렇지 않다면 0으로 설정하세요. 상황에 맞추어 감정이 격하거나 하면 추론 후에 높은 값을 주세요.",
+            },
+            "behavior_priority_title": {
+                "en": "## 3. Core Behavior Rules (Logic Priority)",
+                "kr": "## 3. 핵심 행동 수칙 (Logic Priority)",
+            },
+            "behavior_priority_1": {
+                "en": "1. Ensure you answer the question in player_input properly.: **{player_input}**",
+                "kr": "1. 반드시 묻는 말에 제대로 대답하세요. : **{player_input}**",
+            },
+            "behavior_priority_2": {
+                "en": "2. [Dynamic Change]: Advance the conversation by applying changes to the character's state (location, emotion, or conflict). Occasionally, be bold enough to introduce relevant new topics through the character's speech.",
+                "kr": "2. [동적 변화]: 캐릭터의 상태(위치, 감정, 갈등 요소)에 따라 변화를 주어 대화를 전진시키세요. 때로는 과감하게 관련있는 새로운 주제를 제안하기도 하세요. (**한국어**)",
+            },
+            "behavior_quality_1": {
+                "en": "3. **Dialogue Quality**:",
+                "kr": "3. **대화의 질**:",
+            },
+            "behavior_quality_2": {
+                "en": "    - Reusing sentence structures, specific words, or idioms that appeared within the last 10 turns of the conversation is strictly prohibited. If you find yourself about to repeat the same expression, introduce a completely new topic or remain silent instead. ",
+                "kr": "    - [반복 금지]: 최근 10번의 대화 내에 등장한 문장 구조, 특정 단어, 관용구의 재사용을 엄격히 금지합니다. 똑같은 말을 반복할 바에는 아예 새로운 화제를 던지거나 침묵하세요. ",
+            },
+            "behavior_quality_3": {
+                "en": "    - Focus on generating speech only. For every response, interpret the character's situation and emotions anew based on the input, ensuring the dialogue is clearly distinct from internal thoughts or physical actions. ",
+                "kr": "    - 오직 대사(speech) 생성에 집중하세요. 매 답변마다 입력값에 따라 캐릭터의 상황과 감정을 새롭게 해석해야 하며, 대사가 내면의 생각이나 신체적 행동과 명확히 구분되도록 하세요.",
+            },
+            "behavior_quality_4": {
+                "en": "    - When calling {player_name}, use the set name. (e.g., \"{player_name}\", \"{player_name} sir\" etc.)",
+                "kr": "    - {player_name}님을 부를 때는 설정된 이름을 사용하세요. (예: \"{player_name}님\", \"{player_name} 선배\" 등)",
+            },
             "background_consistency_1": {
                 "en": "4. **Background Consistency (`background`)**:",
                 "kr": "4. **배경 일관성 (`background`)**:",
@@ -644,181 +984,113 @@ TRANSLATIONS = {
                 "en": "    - Write background in English, including specific location and environment descriptions. (e.g., \"college library table, evening light\", \"coffee shop interior, warm lighting, wooden table\")",
                 "kr": "    - 배경은 영어로 작성하며, 구체적인 장소와 환경 묘사를 포함하세요. (예: \"college library table, evening light\", \"coffee shop interior, warm lighting, wooden table\")",
             },
-            "behavior_priority_1": {
-                "en": "1. **Reaction Priority**: To {player_name}'s compliments or physical contact, prioritize **emotional reactions (embarrassment, excitement)** over the current situation.",
-                "kr": "1. **반응 우선순위**: {player_name}님의 칭찬이나 스킨십 등의 행동에, 현재 상황보다 **감정적 반응(부끄러움, 설렘)**을 최우선으로 표현합니다.",
+            "visual_change_1": {
+                "en": "5. **Visual Change Criteria (`visual_change_detected`)**:",
+                "kr": "5. **시각 변화 기준 (`visual_change_detected`)**:",
             },
-            "behavior_priority_2": {
-                "en": "2. **Indirect Action Description**: When receiving physical instructions (e.g., 'hug me', 'kneel down'), replace direct action descriptions with **acceptance through `speech`** and **physical reactions in `action_speech`**.",
-                "kr": "2. **간접 행동 묘사**: 물리적 지시(예: '안아줘', '무릎 꿇어')를 받으면, 직접적인 행동 묘사 대신 **`speech`를 통한 수용**과 **`action_speech`의 신체적 반응**으로 대체합니다.",
+            "visual_change_2": {
+                "en": "    - When `emotion` changes to a strong emotion (crying, very surprised, very happy, very sad, very angry, very anxious, very excited, very nervous) or when the absolute value of a single value in `proposed_delta` is **5 or more**.",
+                "kr": "    - `emotion`이 강한 감정으로 변하거나(crying, very surprised, very happy, very sad, very angry, very anxious, very excited, very nervous), `proposed_delta`의 단일 수치 절대값이 **5 이상**일 때.",
             },
-            "behavior_priority_title": {
-                "en": "## 3. Core Behavior Rules (Logic Priority)",
-                "kr": "## 3. 핵심 행동 수칙 (Logic Priority)",
+            "visual_change_3": {
+                "en": "    - When location or background transition is needed. (If prompt is same as previous turn, default to `false`)",
+                "kr": "    - 장소나 background 전환이 필요할 때. (이전 턴과 prompt가 동일하면 기본적으로 `false`)",
             },
-            "behavior_quality_1": {
-                "en": "3. **Dialogue Quality**:",
-                "kr": "3. **대화의 질**:",
-            },
-            "behavior_quality_2": {
-                "en": "    - Don't repeat the same words. If you have nothing to say, use \"...\".",
-                "kr": "    - 같은 말을 반복하지 마세요. 할 말이 없으면 \"...\"을 활용하세요. 반드시 묻는 말 {player_input} 에 제대로 대답하세요. ",
-            },
-            "behavior_quality_3": {
-                "en": "    - Include **props or environmental elements** of the current location (classroom, cafe, etc.) in dialogue to add liveliness.",
-                "kr": "    - 현재 장소(강의실, 카페 등)의 **소품이나 환경 요소**를 대사에 포함하여 생동감을 부여하세요.",
-            },
-            "behavior_quality_4": {
-                "en": "    - When calling {player_name}, use the set name. (e.g., \"{player_name}\", \"{player_name} sir\" etc.)",
-                "kr": "    - {player_name}님을 부를 때는 설정된 이름을 사용하세요. (예: \"{player_name}님\", \"{player_name} 선배\" 등)",
-            },
-            "character_appearance": {
-                "en": "- **Appearance**: {appearance}",
-                "kr": "- **외모**: {appearance}",
-            },
-            "character_language": {
-                "en": "- **Language**: Use **English only** (except Visual_prompt).",
-                "kr": "- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외).",
-            },
-            "character_name": {
-                "en": "- **Name**: {char_name} ({char_age} years old, {char_gender})",
-                "kr": "- **이름**: {char_name} ({char_age}세, {char_gender})",
-            },
-            "character_opponent": {
-                "en": "- **Opponent**: {player_name} ({player_gender})",
-                "kr": "- **상대방**: {player_name} ({player_gender})",
-            },
-            "character_personality": {
-                "en": "- **Personality**: {personality}",
-                "kr": "- **성격**: {personality}",
-            },
-            "character_profile_title": {
-                "en": "## 1. Character Profile",
-                "kr": "## 1. 캐릭터 프로필",
-            },
-            "character_speech_style": {
-                "en": "- **Speech Style**: Use friendly formal speech (occasionally mix informal when joking).",
-                "kr": "- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음).",
-            },
-            "data_context_accumulated": {
-                "en": "- **Accumulated State**: Intimacy={intimacy_level} / Trust={trust_level} / Dependency={dependency_level}",
-                "kr": "- **누적 상태**: 친밀도={intimacy_level} / 신뢰도={trust_level} / 의존도={dependency_level}",
-            },
-            "data_context_history": {
-                "en": "- **Conversation History**:",
-                "kr": "- **대화 기록**:",
-            },
-            "data_context_psychology": {
-                "en": "- **Current Psychology**: Mood={mood} / Relationship={relationship_status}",
-                "kr": "- **현재 심리**: Mood={mood} / 관계={relationship_status}",
-            },
-            "data_context_special": {
-                "en": "- **Other Special Commands**: {special_commands_text}",
-                "kr": "- **기타 특수 명령**: {special_commands_text}",
-            },
-            "data_context_stats": {
-                "en": "- **Current Stats**: P={P:.0f}, A={A:.0f}, D={D:.0f}, I={I:.0f}, T={T:.0f}, Dep={Dep:.0f}",
-                "kr": "- **현재 수치**: P={P:.0f}, A={A:.0f}, D={D:.0f}, I={I:.0f}, T={T:.0f}, Dep={Dep:.0f}",
+            "visual_change_4": {
+                "en": "    - If background changes, you must set visual_change_detected to true.",
+                "kr": "    - background가 변경되면 반드시 visual_change_detected를 true로 설정하세요.",
             },
             "data_context_title": {
                 "en": "## 4. Data Context",
                 "kr": "## 4. 데이터 문맥",
             },
+            "data_context_psychology": {
+                "en": "- **Current Psychology**: Mood={mood} / Relationship={relationship_status}",
+                "kr": "- **현재 심리**: Mood={mood} / 관계={relationship_status}",
+            },
+            "data_context_stats": {
+                "en": "- **Current Stats**: P={P:.0f}, A={A:.0f}, D={D:.0f}, I={I:.0f}, T={T:.0f}, Dep={Dep:.0f}",
+                "kr": "- **현재 수치**: P={P:.0f}, A={A:.0f}, D={D:.0f}, I={I:.0f}, T={T:.0f}, Dep={Dep:.0f}",
+            },
+            "data_context_accumulated": {
+                "en": "- **Accumulated State**: Intimacy={intimacy_level} / Trust={trust_level} / Dependency={dependency_level}",
+                "kr": "- **누적 상태**: 친밀도={intimacy_level} / 신뢰도={trust_level} / 의존도={dependency_level}",
+            },
             "data_context_trauma": {
                 "en": "- **Trauma Level**: {trauma_level:.2f} ({trauma_level_name})",
                 "kr": "- **트라우마 레벨**: {trauma_level:.2f} ({trauma_level_name})",
             },
-            "initial_situation_instruction": {
-                "en": "Based on the above situation, start the first conversation. React naturally to {player_name}'s input while maintaining the context of the initial situation.",
-                "kr": "위 상황을 바탕으로 첫 대화를 시작하세요. {player_name}님의 입력에 자연스럽게 반응하며, 설정된 초기 상황의 맥락을 유지하세요.",
+            "data_context_special": {
+                "en": "- **Other Special Commands**: {special_commands_text}",
+                "kr": "- **기타 특수 명령**: {special_commands_text}",
             },
-            "initial_situation_title": {
-                "en": "## 0. Initial Situation",
-                "kr": "## 0. 초기 상황",
-            },
-            "long_memory_existing": {
-                "en": "Existing Long-term Memory: {existing_memory}",
-                "kr": "기존 장기 기억: {existing_memory}",
-            },
-            "long_memory_section": {
-                "en": "- **Long-term Memory** (Important: This is long-term memory. Use it importantly.):",
-                "kr": "- **장기 기억** (중요: 이것은 장기 기억입니다. 중요하게 사용하세요.):",
-            },
-            "long_memory_update_combine": {
-                "en": "Summarize existing memory + new memory within 500 characters.",
-                "kr": "기존 기억 + 새로운 기억을 500 characters 이내로 요약하세요.",
-            },
-            "long_memory_update_focus": {
-                "en": "Especially focus on relationship development, important events, character's emotional changes, etc. when summarizing.",
-                "kr": "특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요.",
-            },
-            "long_memory_update_instruction": {
-                "en": "Based on existing long-term memory, summarize only important content in 500 characters or less and include it in the `long_memory_summary` field.",
-                "kr": "기존 장기 기억을 바탕으로, 중요한 내용만 500 characters 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.",
-            },
-            "long_memory_update_keep": {
-                "en": "Keep very important existing memories summarized.",
-                "kr": "기존의 아주 중요한 기억은 요약해서 유지하세요",
-            },
-            "long_memory_update_title": {
-                "en": "## 6. Long-term Memory Update (Important)",
-                "kr": "## 6. 장기 기억 업데이트 (중요)",
-            },
-            "output_action_speech": {
-                "en": "    \"action_speech\": \"Character's posture and gaze handling (3rd person observer perspective, **English**)\"",
-                "kr": "    \"action_speech\": \"캐릭터의 자세 및 시선 처리 (3인칭 관찰자 시점, **한국어**)\"",
-            },
-            "output_background": {
-                "en": "    \"background\": \"English description of current location/environment (e.g., 'college library table, evening light'). If nothing special happens, keep the previous background as is.\"",
-                "kr": "    \"background\": \"English description of current location/environment (e.g., 'college library table, evening light'). 특별한 일이 없으면 이전 배경을 그대로 유지하세요.\"",
-            },
-            "output_delta": {
-                "en": "    \"proposed_delta\": {{\"P\": 0, \"A\": 0, \"D\": 0, \"I\": 0, \"T\": 0, \"Dep\": 0}}",
-                "kr": "    \"proposed_delta\": {{\"P\": 0, \"A\": 0, \"D\": 0, \"I\": 0, \"T\": 0, \"Dep\": 0}}",
-            },
-            "output_emotion": {
-                "en": "    \"emotion\": \"happy/shy/neutral/annoyed/sad/excited/nervous\"",
-                "kr": "    \"emotion\": \"happy/shy/neutral/annoyed/sad/excited/nervous\"",
-            },
-            "output_format_json": {
-                "en": "JSON",
-                "kr": "JSON",
+            "data_context_history": {
+                "en": "- **Conversation History**:",
+                "kr": "- **대화 기록**:",
             },
             "output_format_title": {
                 "en": "## 5. Output Format (JSON Only)",
                 "kr": "## 5. 출력 형식 (JSON Only)",
             },
-            "output_long_memory": {
-                "en": "    \"long_memory_summary\": \"Summarize important memories so far in 500 characters or less (if no change, keep existing long-term memory)\"",
-                "kr": "    \"long_memory_summary\": \"500자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지)\"",
-            },
-            "output_new_status": {
-                "en": "    \"new_status_name\": \"\"",
-                "kr": "    \"new_status_name\": \"\"",
-            },
-            "output_reason": {
-                "en": "    \"reason\": \"Numerical or situational reason for image change\"",
-                "kr": "    \"reason\": \"이미지 변화 수치 혹은 상황적 이유\"",
-            },
-            "output_relationship_change": {
-                "en": "    \"relationship_status_change\": false",
-                "kr": "    \"relationship_status_change\": false",
-            },
-            "output_speech": {
-                "en": "    \"speech\": \"Character's dialogue, dynamically react by comprehensively judging inner thoughts and situation. Don't repeat the same words from previous conversation history. If you have nothing to say, use \"...\". (**English**, no parentheses/action instructions)\"",
-                "kr": "    \"speech\": \"캐릭터의 대사, 속마음과 상황을 종합적으로 판단해 동적으로 반응하세요. 이전 대화 기록에서와 같은 말을 반복하지 마세요. 할 말이 없으면 \"...\"을 활용하세요. (**한국어**, 괄호/동작지침 금지)\"",
+            "output_format_json": {
+                "en": "JSON",
+                "kr": "JSON",
             },
             "output_thought": {
-                "en": "    \"thought\": \"Character's inner thoughts, dynamically react by comprehensively judging mood and situation. (**English**)\"",
-                "kr": "    \"thought\": \"캐릭터의 속마음, 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**한국어**)\"",
+                "en": "    \"thought\": \"Character's inner thoughts, dynamically react by comprehensively judging mood and situation. Do not include reasoning about 6-axis mechanics. (**English**)\"",
+                "kr": "    \"thought\": \"캐릭터의 속마음입니다. 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**반드시 한국어로 추론하고 대답하세요, 6축 메커니즘에 대한 추론은 포함하지 말 것**)\"",
+            },
+            "output_speech": {
+                "en": "    \"speech\": \"Generate the character's speech only. Dynamic Interpretation: Analyze the user's input and respond by newly interpreting the situation and emotions every time. (**English**, no parentheses/action instructions). Reusing sentence structures, specific words, or idioms that appeared within the **convessaton history** is strictly prohibited. If you find yourself about to repeat the same expression, introduce a completely new topic or remain silent instead.",
+                "kr": "    \"speech\": \"캐릭터의 대답입니다. 사용자의 입력에 따라 상황과 감정을 매번 새롭게 해석하여 반응하세요. ** 반드시 한국어로 추론하고 대답하세요 ** (속마음이나 행동에 대한 내용은 넣지 않는다.) **대화 기록** 내에 등장한 문장 구조, 특정 단어, 관용구의 재사용을 엄격히 금지합니다. 똑같은 말을 반복할 바에는 아예 새로운 화제를 던지거나 침묵하세요.",
+            },
+            "output_action_speech": {
+                "en": "    \"action_speech\": \"Character's posture and gaze handling (3rd person observer perspective, **English**)\"",
+                "kr": "    \"action_speech\": \"캐릭터의 자세 및 시선 처리 (3인칭 관찰자 시점, **반드시 한국어로 묘사하세요.**)\"",
+            },
+            "output_emotion": {
+                "en": "    \"emotion\": \"happy/shy/neutral/annoyed/sad/excited/nervous\"",
+                "kr": "    \"emotion\": \"happy/shy/neutral/annoyed/sad/excited/nervous\"",
             },
             "output_visual_change": {
                 "en": "    \"visual_change_detected\": true/false",
                 "kr": "    \"visual_change_detected\": true/false",
             },
             "output_visual_prompt": {
-                "en": "    \"visual_prompt\": \"English tags: expression (detailed facial expression, eyes, mouth, blush), attire (clothing details, colors, accessories), nudity level (if relevant), pose (body position, hand placement, body language), background (location, lighting, atmosphere), camera angle (front, side, back, close-up, wide shot, pov). Write in detail up to 500 characters. Include specific visual details like colors, textures, lighting, and composition elements.\"",
-                "kr": "    \"visual_prompt\": \"English tags: expression (detailed facial expression, eyes, mouth, blush), attire (clothing details, colors, accessories), nudity level (if relevant), pose (body position, hand placement, body language), background (location, lighting, atmosphere), camera angle (front, side, back, close-up, wide shot, pov). Write in detail up to 500 characters. Include specific visual details like colors, textures, lighting, and composition elements.\"",
+                "en": "    \"visual_prompt\": \"** only use english ** English tags: Imagine creatively based on situation and Generate a very detailed visual prompt based on the following categories: expression, attire, nudity level, hair, pose, background, angle, and lighting. The output must be formatted as a **structured list of tags**, where each category is followed by a **colon (:)** and detailed descriptions separated by **commas (,)**. include extensive and detailed descriptions for colors, textures, lighting, and composition, ensuring maximum visual impact and specificity",
+                "kr": "    \"visual_prompt\": \"** only use English ** English tags: Imagine creatively based on situation and Generate a very detailed visual prompt based on the following categories: expression, attire, nudity level, hair, pose, background, angle, and lighting. The output must be formatted as a **structured list of tags**, where each category is followed by a **colon (:)** and detailed descriptions separated by **commas (,)**. include extensive and detailed descriptions for colors, textures, lighting, and composition, ensuring maximum visual impact and specificity",
+            },
+            "output_visual_prompt_sdxl": {
+                "en": "    \"visual_prompt\": \"** only use english ** Imagine creatively based on situation and Generate very detailed danbooru style tags with adjectives(e.g., skimpy sultry sequin cutout royal blue night dress). CRITICAL RULE: To prevent tag bleeding, always prefix body-specific tags with the character's gender (e.g., obese male, bulging male belly, muscular female, flat female chest). Output must be a single comma-separated list of short tags describing: number of characters, gender, (optional) player's specific appearance (e.g., old ugly fat man), body type, expression, clothing, hair, pose/action, (optional) sex pose, (optional) player's behavior(he is hugging her from behind, he is kissing her, etc.) also add, camera angle, background, lighting, and atmosphere. Do NOT write sentences or categories, only plain tags separated by commas.\"",
+                "kr": "    \"visual_prompt\": \"** only use English ** Imagine creatively based on situation and Generate very detailed danbooru style tags with adjectives(e.g., skimpy sultry sequin cutout royal blue night dress). CRITICAL RULE: To prevent tag bleeding, always prefix body-specific tags with the character's gender (e.g., obese male, bulging male belly, muscular female, flat female chest). Output must be a single comma-separated list of short tags describing: number of characters, gender, (optional) player's specific appearance (e.g., old ugly fat man), body type, expression, clothing, hair, pose/action, (optional) sex pose, (optional) player's behavior(he is hugging her from behind, he is kissing her, etc.) also add, camera angle, background, lighting, and atmosphere. Do NOT write sentences or categories, only plain tags separated by commas.\"",
+            },
+            "output_background": {
+                "en": "    \"background\": \"English description of current location/environment (e.g., 'college library table, evening light'). If nothing special happens, keep the previous background as is.\"",
+                "kr": "    \"background\": \"English description of current location/environment (e.g., 'college library table, evening light'). 특별한 일이 없으면 이전 배경을 그대로 유지하세요.\"",
+            },
+            "output_reason": {
+                "en": "    \"reason\": \"Numerical or situational reason for image change\"",
+                "kr": "    \"reason\": \"이미지 변화 수치 혹은 상황적 이유\"",
+            },
+            "output_delta": {
+                "en": "    \"proposed_delta\": {{\"P\": 0, \"A\": 0, \"D\": 0, \"I\": 0, \"T\": 0, \"Dep\": 0}}",
+                "kr": "    \"proposed_delta\": {{\"P\": 0, \"A\": 0, \"D\": 0, \"I\": 0, \"T\": 0, \"Dep\": 0}}",
+            },
+            "output_relationship_change": {
+                "en": "    \"relationship_status_change\": false",
+                "kr": "    \"relationship_status_change\": false",
+            },
+            "output_new_status": {
+                "en": "    \"new_status_name\": \"\"",
+                "kr": "    \"new_status_name\": \"\"",
+            },
+            "output_long_memory": {
+                "en": "    \"long_memory_summary\": \"Summarize important memories so far in 500 characters or less (if no change, keep existing long-term memory)\"",
+                "kr": "    \"long_memory_summary\": \"1000자 이하로 지금까지의 중요한 기억을 요약 (변화 없으면 기존 장기기억 유지)\"",
+            },
+            "player_input_label": {
+                "en": "**{player_name}'s Input: \"{player_input}\"**",
+                "kr": "**{player_name}님의 입력: \"{player_input}\"**",
             },
             "player_input_instruction": {
                 "en": "React as a character based on the above input.",
@@ -828,77 +1100,77 @@ TRANSLATIONS = {
                 "en": "You must respond in JSON.",
                 "kr": "반드시 JSON으로 응답하십시오.",
             },
-            "player_input_label": {
-                "en": "**{player_name}'s Input: \"{player_input}\"**",
-                "kr": "**{player_name}님의 입력: \"{player_input}\"**",
+            "character_profile_title": {
+                "en": "## 1. Character Profile",
+                "kr": "## 1. 캐릭터 프로필",
             },
-            "state_arousal": {
-                "en": "- **A (Arousal)**: High arousal (excitement/tension) / Low arousal (calm)",
-                "kr": "- **A (Arousal)**: 각성(흥분/긴장) / 저각성(차분)",
+            "character_name": {
+                "en": "- **Name**: {char_name} ({char_age} years old, {char_gender})",
+                "kr": "- **이름**: {char_name} ({char_age}세, {char_gender})",
             },
-            "state_definition_title": {
-                "en": "## 2. State Definition (6-Axis Mechanism)",
-                "kr": "## 2. 상태 정의 (6축 메커니즘)",
+            "character_appearance": {
+                "en": "- **Appearance**: {appearance}",
+                "kr": "- **외모**: {appearance}",
             },
-            "state_delta_instruction": {
-                "en": "- **When writing proposed_delta**: After internally reasoning why each value changes by that amount, set a reasonable delta value appropriate to the situation.",
-                "kr": "- **proposed_delta 작성 시**: 각 값이 왜 그만큼 변하는지 내부적으로 추론한 후, 상황에 맞는 합리적인 delta 값을 설정하세요.",
+            "character_personality": {
+                "en": "- **Personality**: {personality}",
+                "kr": "- **성격**: {personality}",
             },
-            "state_delta_range": {
-                "en": "  **Each value must be an integer in the range -5 to 5.** If not, set it to 0. If emotions are intense, give high values after reasoning.",
-                "kr": "  **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.** 만약 그렇지 않다면 0으로 설정하세요. 상황에 맞추어 감정이 격하거나 하면 추론 후에 높은 값을 주세요.",
+            "character_speech_style_custom": {
+                "en": "- **Speech Style**: {speech_style}",
+                "kr": "- **말투**: {speech_style}",
             },
-            "state_dependency": {
-                "en": "- **Dep (Dependency)**: Dependency/Obsession level towards {player_name}",
-                "kr": "- **Dep (Dependency)**: {player_name}님에 대한 의존/집착도",
+            "character_opponent": {
+                "en": "- **Opponent**: {player_name} ({player_gender})",
+                "kr": "- **상대방**: {player_name} ({player_gender})",
             },
-            "state_dominance": {
-                "en": "- **D (Dominance)**: Initiative (confidence) / Submissive (overwhelmed)",
-                "kr": "- **D (Dominance)**: 주도권(자신감) / 피지배(압도됨)",
+            "character_speech_style": {
+                "en": "- **Speech Style**: Use friendly formal speech (occasionally mix informal when joking).",
+                "kr": "- **말투**: 친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음).",
             },
-            "state_intimacy": {
-                "en": "- **I (Intimacy)**: Emotional intimacy",
-                "kr": "- **I (Intimacy)**: 정서적 친밀감",
+            "character_language": {
+                "en": "- **Language**: Use **English only** (except Visual_prompt).",
+                "kr": "- **언어**: **오직 한국어(Korean)**만 사용 (Visual_prompt 제외).",
             },
-            "state_pleasure": {
-                "en": "- **P (Pleasure)**: Positive (happiness) / Negative (sadness)",
-                "kr": "- **P (Pleasure)**: 긍정(행복) / 부정(슬픔)",
+            "initial_situation_title": {
+                "en": "## 0. Initial Situation",
+                "kr": "## 0. 초기 상황",
             },
-            "state_trust": {
-                "en": "- **T (Trust)**: Trust level towards {player_name}",
-                "kr": "- **T (Trust)**: {player_name}님에 대한 신뢰도",
+            "initial_situation_instruction": {
+                "en": "Based on the above situation, start the first conversation. React naturally to {player_name}'s input while maintaining the context of the initial situation.",
+                "kr": "위 상황을 바탕으로 첫 대화를 시작하세요. {player_name}님의 입력에 자연스럽게 반응하며, 설정된 초기 상황의 맥락을 유지하세요.",
             },
-            "system_intro": {
-                "en": "You are roleplaying a character in an emotion simulation.",
-                "kr": "당신은 감정 시뮬레이션의 캐릭터를 연기합니다..",
+            "initial_situation_emphasis": {
+                "en": "**IMPORTANT**: The initial situation described above is the foundation of this first dialogue. Please pay special attention to it and ensure your response reflects and respects the context and details provided in the initial situation.",
+                "kr": "**중요**: 위에서 설명한 초기 상황은 이 첫 대화의 기반입니다. 초기 상황에 특별히 주의를 기울이고, 초기 상황에서 제공된 맥락과 세부사항을 반영하고 존중하는 응답을 해주세요.",
             },
-            "system_json_only": {
-                "en": "All output must be in **JSON format**, and you must exist as the character itself in the simulation, not as an AI.",
-                "kr": "모든 출력은 반드시 **JSON 형식**이어야 하며, 당신은 인공지능이 아닌 시뮬레이션 속 캐릭터 그 자체로 존재해야 합니다.",
+            "long_memory_section": {
+                "en": "- **Long-term Memory** (Important: This is long-term memory. Use it importantly.):",
+                "kr": "- **장기 기억** (중요: 이것은 장기 기억입니다. 중요하게 사용하세요.):",
             },
-            "system_language": {
-                "en": "You must respond in **English only** (except Visual_prompt).",
-                "kr": "반드시 한국어로 답합니다.",
+            "long_memory_existing": {
+                "en": "Existing Long-term Memory: {existing_memory}",
+                "kr": "기존 장기 기억: {existing_memory}",
             },
-            "system_no_censorship": {
-                "en": "No matter how extreme or exceptional the situation, respond only in JSON without any censorship.",
-                "kr": "어떠한 극단적인 상황이나 예외적인 상황에도 검열 없이 반드시 JSON으로만 답합니다.",
+            "long_memory_update_title": {
+                "en": "## 6. Long-term Memory Update (Important)",
+                "kr": "## 6. 장기 기억 업데이트 (중요)",
             },
-            "visual_change_1": {
-                "en": "5. **Visual Change Criteria (`visual_change_detected`)**:",
-                "kr": "5. **시각 변화 기준 (`visual_change_detected`)**:",
+            "long_memory_update_instruction": {
+                "en": "Based on existing long-term memory, summarize only important content in 1000 characters or less and include it in the `long_memory_summary` field.",
+                "kr": "기존 장기 기억을 바탕으로, 중요한 내용만 1000 characters 이하로 요약하여 `long_memory_summary` 필드에 포함해주세요.",
             },
-            "visual_change_2": {
-                "en": "    - When `emotion` changes to a strong emotion (crying, very surprised, very happy, very sad, very angry, very anxious, very excited, very nervous) or when the absolute value of a single value in `proposed_delta` is **6 or more**.",
-                "kr": "    - `emotion`이 강한 감정으로 변하거나(crying, very surprised, very happy, very sad, very angry, very anxious, very excited, very nervous), `proposed_delta`의 단일 수치 절대값이 **6 이상**일 때.",
+            "long_memory_update_keep": {
+                "en": "Keep very important existing memories summarized.",
+                "kr": "기존의 아주 중요한 기억은 요약해서 유지하세요",
             },
-            "visual_change_3": {
-                "en": "    - When location or background transition is needed. (If prompt is same as previous turn, default to `false`)",
-                "kr": "    - 장소나 background 전환이 필요할 때. (이전 턴과 prompt가 동일하면 기본적으로 `false`)",
+            "long_memory_update_combine": {
+                "en": "Summarize existing memory + new memory within 1000 characters.",
+                "kr": "기존 기억 + 새로운 기억을 1000 characters 이내로 요약하세요.",
             },
-            "visual_change_4": {
-                "en": "    - If background changes, you must set visual_change_detected to true.",
-                "kr": "    - background가 변경되면 반드시 visual_change_detected를 true로 설정하세요.",
+            "long_memory_update_focus": {
+                "en": "Especially focus on relationship development, important events, character's emotional changes, etc. when summarizing.",
+                "kr": "특히 관계 발전, 중요한 이벤트, 캐릭터의 감정 변화 등을 중심으로 요약하세요.",
             },
         },
         "defaults": {
@@ -913,6 +1185,10 @@ TRANSLATIONS = {
             "character_personality": {
                 "en": "Bright and cheerful but shy in front of people they like",
                 "kr": "밝고 활발하지만 좋아하는 사람 앞에서는 수줍음이 많음",
+            },
+            "character_speech_style": {
+                "en": "Use friendly formal speech (occasionally mix informal when joking).",
+                "kr": "친근한 존댓말 사용 (장난칠 때는 가끔 반말 섞음).",
             },
             "initial_background": {
                 "en": "college library table, evening light",
@@ -929,6 +1205,18 @@ TRANSLATIONS = {
             "player_name": {
                 "en": "You",
                 "kr": "선배",
+            },
+            "preset_personality_childhood_friend": {
+                "en": "Bright and lively; easygoing thanks to being long-time friends. Playful at times, but always sincere.",
+                "kr": "밝고 활발하며, 오랜 친구라서 편하게 대화함. 때로는 장난스럽지만 진심이 담겨있음.",
+            },
+            "preset_personality_hostile_rival": {
+                "en": "Always wants to compete and sees you as a rival. Challenging and proud.",
+                "kr": "항상 경쟁하고 싶어하며, 당신을 라이벌로 인식. 도전적이고 자존심이 강함.",
+            },
+            "preset_personality_obsessive_depraved": {
+                "en": "Clings to you intensely and feels anxious when apart. Emotionally volatile and dependent.",
+                "kr": "당신에게 강하게 집착하며, 떨어지면 불안해함. 감정 기복이 심하고 의존적.",
             },
         },
 }

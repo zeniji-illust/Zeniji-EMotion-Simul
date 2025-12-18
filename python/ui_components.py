@@ -14,10 +14,13 @@ class UIComponents:
     """UI 컴포넌트 생성 클래스"""
     
     @staticmethod
-    def create_radar_chart(stats: Dict[str, float], deltas: Optional[Dict[str, float]] = None) -> go.Figure:
+    def create_radar_chart(stats: Dict[str, float], deltas: Optional[Dict[str, float]] = None, labels: Optional[Dict[str, any]] = None) -> go.Figure:
         """6축 수치를 위한 radar chart 생성"""
-        categories = ['P (쾌락)', 'A (각성)', 'D (지배)', 'I (친밀)', 'T (신뢰)', 'Dep (의존)']
         keys = ['P', 'A', 'D', 'I', 'T', 'Dep']
+        default_categories = ['P (쾌락)', 'A (각성)', 'D (지배)', 'I (친밀)', 'T (신뢰)', 'Dep (의존)']
+        categories = (labels or {}).get("categories", default_categories)
+        current_name = (labels or {}).get("current_name", "현재 수치")
+        delta_name = (labels or {}).get("delta_name", "변화 후")
         
         values = [stats.get(key, 0.0) for key in keys]
         
@@ -28,7 +31,7 @@ class UIComponents:
             r=values,
             theta=categories,
             fill='toself',
-            name='현재 수치',
+            name=current_name,
             line_color='rgb(32, 201, 151)',
             fillcolor='rgba(32, 201, 151, 0.3)'
         ))
@@ -42,7 +45,7 @@ class UIComponents:
                 r=delta_display,
                 theta=categories,
                 fill='toself',
-                name='변화 후',
+                name=delta_name,
                 line_color='rgb(255, 99, 71)',
                 fillcolor='rgba(255, 99, 71, 0.2)',
                 line_dash='dash'

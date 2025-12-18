@@ -17,6 +17,7 @@ from logic_engine import (
 )
 from memory_manager import MemoryManager
 from i18n import get_i18n
+from config_manager import ConfigManager
 
 logger = logging.getLogger("Brain")
 
@@ -38,6 +39,8 @@ class Brain:
         self.turns_since_image = 0
         # 초기 설정 정보
         self.initial_config: Optional[Dict] = None
+        # 시간 측정용 변수
+        self._last_llm_time = 0.0
     
     def set_initial_config(self, config: Dict[str, Any]):
         """초기 설정 정보 설정"""
@@ -251,6 +254,10 @@ class Brain:
         
         logger.info("Calling LLM API...")
         try:
+            # LLM 응답 시간 측정 시작
+            import time
+            llm_start_time = time.time()
+            
             # Ollama API 호출 (메인 응답)
             response_text = self.memory_manager.generate(
                 prompt,
@@ -259,11 +266,23 @@ class Brain:
                 max_tokens=config.LLM_CONFIG["max_tokens"]
             )
             
+            # LLM 응답 시간 측정 완료
+            llm_elapsed_time = time.time() - llm_start_time
+            logger.info(f"⏱️ LLM 응답 시간: {llm_elapsed_time:.2f}s")
+            # 시간 정보 저장 (전체 완료 로그에서 사용)
+            self._last_llm_time = llm_elapsed_time
+            
             if not response_text or not response_text.strip():
                 raise ValueError("Ollama returned empty response")
 
             return response_text
         except Exception as e:
+            # 에러 발생 시에도 시간 측정
+            import time
+            if 'llm_start_time' in locals():
+                llm_elapsed_time = time.time() - llm_start_time
+                logger.error(f"⏱️ LLM 응답 시간 (에러): {llm_elapsed_time:.2f}s")
+                self._last_llm_time = llm_elapsed_time
             logger.error(f"Ollama API call failed: {e}")
             import traceback
             logger.error(traceback.format_exc())
@@ -293,8 +312,9 @@ class Brain:
         # 최근 히스토리 (DialogueHistory는 이미 max_turns=10이므로, format_for_prompt로 충분)
         history_text = self.history.format_for_prompt()
 
-        # 장기 기억 요약 전용 프롬프트 구성 (언어별 i18n 활용)
-        prompt = f"""{i18n.get_prompt("long_memory_update_title")}
+        # 장기 기억 요약 전용 프롬프트 구성 (단문 텍스트로 요약 요청)
+        if self.language == "kr":
+            prompt = f"""{i18n.get_prompt("long_memory_update_title")}
 
 {i18n.get_prompt("long_memory_update_instruction")}
 {i18n.get_prompt("long_memory_update_focus")}
@@ -306,10 +326,22 @@ class Brain:
 {i18n.get_prompt("data_context_history")}
 {history_text}
 
-JSON:
-{{
-{i18n.get_prompt("output_long_memory")}
-}}
+위 내용을 바탕으로 중요한 기억만 500자 이하로 간단히 요약해주세요. JSON 형식이나 다른 부가 설명 없이 요약 텍스트만 작성해주세요.
+"""
+        else:
+            prompt = f"""{i18n.get_prompt("long_memory_update_title")}
+
+{i18n.get_prompt("long_memory_update_instruction")}
+{i18n.get_prompt("long_memory_update_focus")}
+{i18n.get_prompt("long_memory_update_keep")}
+{i18n.get_prompt("long_memory_update_combine")}
+
+{i18n.get_prompt("long_memory_existing", existing_memory=existing_memory)}
+
+{i18n.get_prompt("data_context_history")}
+{history_text}
+
+Based on the above, please summarize only important memories in 500 characters or less. Please write only the summary text without JSON format or additional explanations.
 """
 
         logger.info(f"🔁 Updating long-term memory (turn={self.state.total_turns})")
@@ -326,20 +358,27 @@ JSON:
                 logger.warning("long_memory 업데이트 LLM 응답이 비어 있습니다. (건너뜀)")
                 return
 
-            # JSON 파싱 후 long_memory_summary 추출
-            try:
-                parsed = self._parse_json(response_text)
-                new_summary = parsed.get("long_memory_summary", "").strip()
-                if new_summary:
-                    # 500자 제한
-                    new_summary = new_summary[:500]
-                    prev_len = len(self.state.long_memory) if self.state.long_memory else 0
-                    logger.info(f"장기 기억 갱신 완료 (이전 길이: {prev_len}, 새 길이: {len(new_summary)}): {new_summary[:100]}...")
-                    self.state.long_memory = new_summary
-                else:
-                    logger.warning("long_memory_summary 필드가 비어 있거나 없습니다. (건너뜀)")
-            except Exception as e:
-                logger.warning(f"long_memory 업데이트 JSON 파싱 실패 (계속 진행): {e}")
+            # 응답 텍스트를 그대로 사용 (JSON 파싱 없이)
+            new_summary = response_text.strip()
+            
+            # JSON 형식이 포함되어 있을 수 있으므로, 중괄호나 따옴표 등 제거 시도
+            # 하지만 우선 그대로 사용하고, 너무 길면 잘라냄
+            if len(new_summary) > 500:
+                # 500자까지만 사용 (문장 중간에서 끊어지지 않도록 공백이나 문장 부호에서 자름)
+                new_summary = new_summary[:500]
+                last_period = new_summary.rfind('.')
+                last_space = new_summary.rfind(' ')
+                if last_period > 450:  # 마지막 50자 내에 마침표가 있으면
+                    new_summary = new_summary[:last_period + 1]
+                elif last_space > 450:  # 마지막 50자 내에 공백이 있으면
+                    new_summary = new_summary[:last_space]
+            
+            if new_summary:
+                prev_len = len(self.state.long_memory) if self.state.long_memory else 0
+                logger.info(f"장기 기억 갱신 완료 (이전 길이: {prev_len}, 새 길이: {len(new_summary)}): {new_summary[:100]}...")
+                self.state.long_memory = new_summary
+            else:
+                logger.warning("long_memory 업데이트 응답이 비어 있습니다. (건너뜀)")
         except Exception as e:
             logger.error(f"long_memory 업데이트 LLM 호출 실패: {e}")
             import traceback
@@ -350,6 +389,16 @@ JSON:
         # I18n 인스턴스 가져오기
         i18n = get_i18n()
         i18n.set_language(self.language)
+        
+        # ComfyUI 스타일에 따라 visual_prompt 출력 형식 분기
+        comfy_style = "QWEN/Z-image"
+        try:
+            cm = ConfigManager()
+            env_cfg = cm.load_env_config()
+            comfy_style = env_cfg.get("comfyui_settings", {}).get("style", "QWEN/Z-image")
+        except Exception as e:
+            logger.warning(f"Failed to load ComfyUI style for prompt building: {e}")
+        visual_prompt_key = "output_visual_prompt_sdxl" if comfy_style == "SDXL" else "output_visual_prompt"
         
         mood = interpret_mood(self.state)
         intimacy_level = get_intimacy_level(self.state.I)
@@ -445,6 +494,7 @@ JSON:
             char_gender = char_info.get("gender", i18n.get_default("character_gender"))
             appearance = char_info.get("appearance", "")
             personality = char_info.get("personality", "")
+            speech_style = char_info.get("speech_style", i18n.get_default("character_speech_style"))
             initial_context = self.initial_config.get("initial_context", "")
         else:
             # 기본값 (초기 설정이 없을 때)
@@ -453,6 +503,7 @@ JSON:
             char_gender = i18n.get_default("character_gender")
             appearance = ""
             personality = ""
+            speech_style = i18n.get_default("character_speech_style")
             initial_context = ""
         
         # 캐릭터 프로필 섹션 (모든 턴에서 초기 설정의 나이 포함)
@@ -469,16 +520,9 @@ JSON:
             character_profile_section += f"\n{i18n.get_prompt('character_appearance', appearance=appearance)}"
         if personality:
             character_profile_section += f"\n{i18n.get_prompt('character_personality', personality=personality)}"
-        character_profile_section += f"\n{i18n.get_prompt('character_speech_style')}"
+        if speech_style:
+            character_profile_section += f"\n{i18n.get_prompt('character_speech_style_custom', speech_style=speech_style)}"
         character_profile_section += f"\n{i18n.get_prompt('character_language')}"
-        
-        # 초기 상황 섹션 (첫 턴일 때만)
-        if self.state.total_turns == 0 and initial_context:
-            initial_context_section = f"""
-{i18n.get_prompt("initial_situation_title")}
-{initial_context}
-{i18n.get_prompt("initial_situation_instruction", player_name=player_name)}
-"""
         
         # 트라우마 지침 섹션 구성
         trauma_section = ""
@@ -511,7 +555,6 @@ JSON:
 {i18n.get_prompt("system_no_censorship")}
 {i18n.get_prompt("system_language")}
 
-{initial_context_section}
 {character_profile_section}
 
 
@@ -528,10 +571,10 @@ JSON:
 
 {i18n.get_prompt("behavior_priority_title")}
 
-{i18n.get_prompt("behavior_priority_1", player_name=player_name)}
+{i18n.get_prompt("behavior_priority_1", player_name=player_name, player_input=player_input)}
 {i18n.get_prompt("behavior_priority_2")}
 {i18n.get_prompt("behavior_quality_1")}
-{i18n.get_prompt("behavior_quality_2")}
+{i18n.get_prompt("behavior_quality_2", player_input=player_input)}
 {i18n.get_prompt("behavior_quality_3")}
 {i18n.get_prompt("behavior_quality_4", player_name=player_name)}
 {i18n.get_prompt("background_consistency_1")}
@@ -550,7 +593,7 @@ JSON:
 {i18n.get_prompt("data_context_trauma", trauma_level=self.state.trauma_level, trauma_level_name=trauma_level_name)}
 {i18n.get_prompt("data_context_special", special_commands_text=special_commands_text)}
 {i18n.get_prompt("data_context_history")}
-{history_text}{long_memory_section}
+{history_text}
 
 {i18n.get_prompt("output_format_title")}
 
@@ -563,16 +606,16 @@ JSON:
 {i18n.get_prompt("output_action_speech")},
 {i18n.get_prompt("output_emotion")},
 {i18n.get_prompt("output_visual_change")},
-{i18n.get_prompt("output_visual_prompt")},
+{i18n.get_prompt(visual_prompt_key)},
 {i18n.get_prompt("output_background")},
 {i18n.get_prompt("output_reason")},
 {i18n.get_prompt("output_delta")},
 {i18n.get_prompt("output_relationship_change")},
-{i18n.get_prompt("output_new_status")},
-{i18n.get_prompt("output_long_memory")}
+{i18n.get_prompt("output_new_status")}
 }}
-```
-{long_memory_instruction}
+``` 
+{long_memory_section}
+{self._get_initial_context_before_input(player_name, initial_context, i18n)}
 {i18n.get_prompt("player_input_label", player_name=player_name, player_input=player_input)}
 {i18n.get_prompt("player_input_instruction")}
 {i18n.get_prompt("player_input_json")}
@@ -585,6 +628,27 @@ JSON:
             logger.debug(f"✅ long_memory_section included in prompt (length: {len(long_memory_section)})")
         
         return prompt
+    
+    def _get_first_dialogue_emphasis(self, i18n) -> str:
+        """처음 10턴 동안 초기 상황 설명의 중요성을 강조하는 지시사항"""
+        if self.state.total_turns >= 10:
+            return ""
+        
+        return f"""
+{i18n.get_prompt("initial_situation_emphasis")}
+"""
+    
+    def _get_initial_context_before_input(self, player_name: str, initial_context: str, i18n) -> str:
+        """처음 10턴 동안 player_input 위에 초기 대화 세팅과 emphasis 추가"""
+        if self.state.total_turns >= 10 or not initial_context:
+            return ""
+        
+        emphasis = self._get_first_dialogue_emphasis(i18n)
+        return f"""
+{i18n.get_prompt("initial_situation_title")}
+{initial_context}
+{i18n.get_prompt("initial_situation_instruction", player_name=player_name)}{emphasis}
+"""
     
     def _get_status_transition_instruction(self) -> str:
         """현재 상태에서 가능한 다음 상태 전환 지침"""
