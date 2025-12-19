@@ -197,23 +197,209 @@ class ComfyClient:
             logger.error(f"  - 서버 주소: {self.server_address}")
             logger.error(f"  - WebSocket URL: {ws_url}")
     
-    def queue_prompt(self, prompt: dict) -> Optional[str]:
-        """프롬프트를 큐에 추가하고 실행"""
+    def _find_workflow_nodes(self, workflow: dict) -> Dict[str, Any]:
+        """워크플로우에서 모든 노드 ID를 찾아서 반환 (fallback 포함)
+        
+        Returns:
+            노드 ID 딕셔너리:
+            {
+                'positive_prompt': node_id or None,
+                'negative_prompt': node_id or None,
+                'checkpoint': node_id or None,
+                'unet': node_id or None,
+                'clip': node_id or None,
+                'vae': node_id or None,
+                'lora': [node_id, ...],
+                'upscale': node_id or None,
+                'ksampler_1': node_id or None,
+                'ksampler_2': node_id or None,
+            }
+        """
+        nodes = {
+            'positive_prompt': None,
+            'negative_prompt': None,
+            'checkpoint': None,
+            'unet': None,
+            'clip': None,
+            'vae': None,
+            'lora': [],
+            'upscale': None,
+            'ksampler_1': None,
+            'ksampler_2': None,
+        }
+        
+        # Positive Prompt (노드 "6")
+        if "6" in workflow and isinstance(workflow["6"], dict) and workflow["6"].get("class_type") == "CLIPTextEncode":
+            nodes['positive_prompt'] = "6"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "CLIPTextEncode":
+                    nodes['positive_prompt'] = node_id
+                    logger.warning(f"Positive Prompt 노드를 고정 노드(6)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # Negative Prompt (노드 "7")
+        if "7" in workflow and isinstance(workflow["7"], dict) and workflow["7"].get("class_type") == "CLIPTextEncode":
+            nodes['negative_prompt'] = "7"
+        else:
+            for node_id, node_data in workflow.items():
+                if (isinstance(node_data, dict) and node_data.get("class_type") == "CLIPTextEncode" 
+                    and node_id != nodes['positive_prompt']):
+                    nodes['negative_prompt'] = node_id
+                    logger.warning(f"Negative Prompt 노드를 고정 노드(7)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # CheckpointLoaderSimple (노드 "19")
+        if "19" in workflow and isinstance(workflow["19"], dict) and workflow["19"].get("class_type") == "CheckpointLoaderSimple":
+            nodes['checkpoint'] = "19"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "CheckpointLoaderSimple":
+                    nodes['checkpoint'] = node_id
+                    logger.warning(f"CheckpointLoaderSimple을 고정 노드(19)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # UNETLoader (노드 "16")
+        if "16" in workflow and isinstance(workflow["16"], dict) and workflow["16"].get("class_type") == "UNETLoader":
+            nodes['unet'] = "16"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "UNETLoader":
+                    nodes['unet'] = node_id
+                    logger.warning(f"UNETLoader를 고정 노드(16)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # CLIPLoader (노드 "18")
+        if "18" in workflow and isinstance(workflow["18"], dict) and workflow["18"].get("class_type") == "CLIPLoader":
+            nodes['clip'] = "18"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "CLIPLoader":
+                    nodes['clip'] = node_id
+                    logger.warning(f"CLIPLoader를 고정 노드(18)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # VAELoader (노드 "17")
+        if "17" in workflow and isinstance(workflow["17"], dict) and workflow["17"].get("class_type") == "VAELoader":
+            nodes['vae'] = "17"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "VAELoader":
+                    nodes['vae'] = node_id
+                    logger.warning(f"VAELoader를 고정 노드(17)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # LoraLoader (노드 "35", "28")
+        if "35" in workflow and isinstance(workflow["35"], dict) and workflow["35"].get("class_type") == "LoraLoader":
+            nodes['lora'].append("35")
+        if "28" in workflow and isinstance(workflow["28"], dict) and workflow["28"].get("class_type") == "LoraLoader":
+            nodes['lora'].append("28")
+        
+        if not nodes['lora']:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "LoraLoader":
+                    nodes['lora'].append(node_id)
+                    logger.warning(f"LoraLoader를 고정 노드(35, 28)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+        
+        # UpscaleModelLoader (노드 "21")
+        if "21" in workflow and isinstance(workflow["21"], dict) and workflow["21"].get("class_type") == "UpscaleModelLoader":
+            nodes['upscale'] = "21"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "UpscaleModelLoader":
+                    nodes['upscale'] = node_id
+                    logger.warning(f"UpscaleModelLoader를 고정 노드(21)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # KSampler 첫 번째 (노드 "3")
+        if "3" in workflow and isinstance(workflow["3"], dict) and workflow["3"].get("class_type") == "KSampler":
+            nodes['ksampler_1'] = "3"
+        else:
+            for node_id, node_data in workflow.items():
+                if isinstance(node_data, dict) and node_data.get("class_type") == "KSampler":
+                    nodes['ksampler_1'] = node_id
+                    logger.warning(f"KSampler를 고정 노드(3)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        # KSampler 두 번째 (노드 "31", 첫 번째가 아닌 것)
+        if "31" in workflow and isinstance(workflow["31"], dict) and workflow["31"].get("class_type") == "KSampler" and nodes['ksampler_1'] != "31":
+            nodes['ksampler_2'] = "31"
+        else:
+            for node_id, node_data in workflow.items():
+                if (isinstance(node_data, dict) and node_data.get("class_type") == "KSampler" 
+                    and node_id != nodes['ksampler_1']):
+                    nodes['ksampler_2'] = node_id
+                    if node_id != "31":
+                        logger.warning(f"두 번째 KSampler를 고정 노드(31)에서 찾지 못해 순회로 찾음: 노드 {node_id}")
+                    break
+        
+        return nodes
+    
+    def queue_prompt(self, prompt: dict, nodes: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        """프롬프트를 큐에 추가하고 실행
+        
+        Args:
+            prompt: 워크플로우 딕셔너리
+            nodes: 노드 ID 딕셔너리 (없으면 자동으로 찾음)
+        """
+        # 노드 정보가 없으면 다시 찾기 (queue_prompt가 직접 호출된 경우)
+        if nodes is None:
+            nodes = self._find_workflow_nodes(prompt)
+        
         p = {"prompt": prompt, "client_id": self.client_id}
         data = json.dumps(p).encode('utf-8')
         req = urllib.request.Request(f"http://{self.server_address}/prompt", data=data)
         req.add_header('Content-Type', 'application/json')
         
-        # 디버깅: 전송되는 워크플로우 정보 로깅
+        # 디버깅: 전송되는 워크플로우 정보 로깅 (값을 주입하는 모든 노드, 찾은 노드 ID 사용)
         logger.debug(f"Queueing prompt to: http://{self.server_address}/prompt")
         logger.debug(f"Client ID: {self.client_id}")
         logger.debug(f"Workflow nodes: {list(prompt.keys())}")
-        if "3" in prompt:
-            logger.debug(f"Node 3 (KSampler) inputs: {json.dumps(prompt['3'].get('inputs', {}), indent=2)}")
-        if "6" in prompt:
-            logger.debug(f"Node 6 (Positive Prompt) text length: {len(prompt['6'].get('inputs', {}).get('text', ''))}")
-        if "16" in prompt:
-            logger.debug(f"Node 16 (UNETLoader) model: {prompt['16'].get('inputs', {}).get('unet_name', 'N/A')}")
+        
+        # KSampler 첫 번째
+        if nodes['ksampler_1'] and nodes['ksampler_1'] in prompt and isinstance(prompt[nodes['ksampler_1']], dict):
+            inputs = prompt[nodes['ksampler_1']].get("inputs", {})
+            logger.debug(f"Node {nodes['ksampler_1']} (KSampler): seed={inputs.get('seed', 'N/A')}, steps={inputs.get('steps', 'N/A')}, cfg={inputs.get('cfg', 'N/A')}, sampler={inputs.get('sampler_name', 'N/A')}, scheduler={inputs.get('scheduler', 'N/A')}")
+        
+        # Positive Prompt
+        if nodes['positive_prompt'] and nodes['positive_prompt'] in prompt and isinstance(prompt[nodes['positive_prompt']], dict):
+            text = prompt[nodes['positive_prompt']].get("inputs", {}).get("text", "")
+            logger.debug(f"Node {nodes['positive_prompt']} (Positive Prompt): text length={len(text)}, preview={text[:100]}..." if len(text) > 100 else f"Node {nodes['positive_prompt']} (Positive Prompt): text={text}")
+        
+        # Negative Prompt
+        if nodes['negative_prompt'] and nodes['negative_prompt'] in prompt and isinstance(prompt[nodes['negative_prompt']], dict):
+            text = prompt[nodes['negative_prompt']].get("inputs", {}).get("text", "")
+            logger.debug(f"Node {nodes['negative_prompt']} (Negative Prompt): text length={len(text)}, preview={text[:100]}..." if len(text) > 100 else f"Node {nodes['negative_prompt']} (Negative Prompt): text={text}")
+        
+        # UNETLoader
+        if nodes['unet'] and nodes['unet'] in prompt and isinstance(prompt[nodes['unet']], dict):
+            logger.debug(f"Node {nodes['unet']} (UNETLoader): model={prompt[nodes['unet']].get('inputs', {}).get('unet_name', 'N/A')}")
+        
+        # VAELoader
+        if nodes['vae'] and nodes['vae'] in prompt and isinstance(prompt[nodes['vae']], dict):
+            logger.debug(f"Node {nodes['vae']} (VAELoader): vae={prompt[nodes['vae']].get('inputs', {}).get('vae_name', 'N/A')}")
+        
+        # CLIPLoader
+        if nodes['clip'] and nodes['clip'] in prompt and isinstance(prompt[nodes['clip']], dict):
+            logger.debug(f"Node {nodes['clip']} (CLIPLoader): clip={prompt[nodes['clip']].get('inputs', {}).get('clip_name', 'N/A')}")
+        
+        # CheckpointLoaderSimple
+        if nodes['checkpoint'] and nodes['checkpoint'] in prompt and isinstance(prompt[nodes['checkpoint']], dict):
+            logger.debug(f"Node {nodes['checkpoint']} (CheckpointLoaderSimple): ckpt={prompt[nodes['checkpoint']].get('inputs', {}).get('ckpt_name', 'N/A')}")
+        
+        # UpscaleModelLoader
+        if nodes['upscale'] and nodes['upscale'] in prompt and isinstance(prompt[nodes['upscale']], dict):
+            logger.debug(f"Node {nodes['upscale']} (UpscaleModelLoader): model={prompt[nodes['upscale']].get('inputs', {}).get('model_name', 'N/A')}")
+        
+        # KSampler 두 번째
+        if nodes['ksampler_2'] and nodes['ksampler_2'] in prompt and isinstance(prompt[nodes['ksampler_2']], dict):
+            logger.debug(f"Node {nodes['ksampler_2']} (KSampler 두 번째): seed={prompt[nodes['ksampler_2']].get('inputs', {}).get('seed', 'N/A')}")
+        
+        # LoraLoader 노드들
+        for lora_node_id in nodes['lora']:
+            if lora_node_id in prompt and isinstance(prompt[lora_node_id], dict):
+                inputs = prompt[lora_node_id].get("inputs", {})
+                logger.debug(f"Node {lora_node_id} (LoraLoader): lora_name={inputs.get('lora_name', 'N/A')}, strength_model={inputs.get('strength_model', 'N/A')}")
         
         try:
             response = urllib.request.urlopen(req, timeout=30)
@@ -361,59 +547,44 @@ class ComfyClient:
         
         logger.info(f"Full prompt: {full_prompt}...")
         
-        # 워크플로우 수정
-        # 노드 "6": CLIPTextEncode (Positive Prompt)
-        if "6" in workflow:
-            workflow["6"]["inputs"]["text"] = full_prompt
+        # 노드 찾기 (한 번만 수행)
+        nodes = self._find_workflow_nodes(workflow)
         
-        # 노드 "7": CLIPTextEncode (Negative Prompt)
-        # 2D 스타일일 때만 negative_prompt 사용, Real 스타일일 때는 빈 문자열 또는 전달받은 값 사용
-        if "7" in workflow:
+        # 워크플로우 수정 (찾은 노드 ID 사용)
+        if nodes['positive_prompt']:
+            workflow[nodes['positive_prompt']]["inputs"]["text"] = full_prompt
+        
+        if nodes['negative_prompt']:
+            # 2D 스타일일 때만 negative_prompt 사용, Real 스타일일 때는 빈 문자열 또는 전달받은 값 사용
             if self.style == "SDXL" and self.negative_prompt:
-                workflow["7"]["inputs"]["text"] = self.negative_prompt
+                workflow[nodes['negative_prompt']]["inputs"]["text"] = self.negative_prompt
             elif negative_prompt:
                 # Real 스타일이지만 전달받은 negative_prompt가 있으면 사용
-                workflow["7"]["inputs"]["text"] = negative_prompt
+                workflow[nodes['negative_prompt']]["inputs"]["text"] = negative_prompt
             else:
                 # 기본값: 빈 문자열
-                workflow["7"]["inputs"]["text"] = ""
+                workflow[nodes['negative_prompt']]["inputs"]["text"] = ""
         
-        # 노드 타입에 따라 모델 설정
-        # SDXL 스타일: CheckpointLoaderSimple (노드 "19") 사용
-        # QWEN/Z-image 스타일: UNETLoader (노드 "16"), CLIPLoader (노드 "18") 사용
-        
-        # CheckpointLoaderSimple 노드 찾기 (SDXL 스타일)
-        checkpoint_node_id = None
-        for node_id, node_data in workflow.items():
-            if node_data.get("class_type") == "CheckpointLoaderSimple":
-                checkpoint_node_id = node_id
-                break
-        
-        if checkpoint_node_id:
+        if nodes['checkpoint']:
             # SDXL 스타일: CheckpointLoaderSimple의 ckpt_name 설정
-            workflow[checkpoint_node_id]["inputs"]["ckpt_name"] = self.model_name
-            logger.info(f"CheckpointLoaderSimple (node {checkpoint_node_id}) model name set to: {self.model_name}")
-        else:
-            # QWEN/Z-image 스타일: UNETLoader, CLIPLoader 설정
-            # 노드 "16": UNETLoader - 모델 이름 설정
-            if "16" in workflow:
-                workflow["16"]["inputs"]["unet_name"] = self.model_name
-                logger.info(f"UNETLoader (node 16) model name set to: {self.model_name}")
-            
-            # 노드 "18": CLIPLoader - CLIP 이름 설정
-            if "18" in workflow:
-                workflow["18"]["inputs"]["clip_name"] = self.clip_name
-                logger.info(f"CLIPLoader (node 18) clip name set to: {self.clip_name}")
+            workflow[nodes['checkpoint']]["inputs"]["ckpt_name"] = self.model_name
+            logger.info(f"CheckpointLoaderSimple (node {nodes['checkpoint']}) model name set to: {self.model_name}")
         
-        # 노드 "17": VAELoader - VAE 이름 설정 (공통)
-        if "17" in workflow:
-            workflow["17"]["inputs"]["vae_name"] = self.vae_name
-            logger.info(f"VAELoader (node 17) VAE name set to: {self.vae_name}")
+        if nodes['unet']:
+            workflow[nodes['unet']]["inputs"]["unet_name"] = self.model_name
+            logger.info(f"UNETLoader (node {nodes['unet']}) model name set to: {self.model_name}")
         
-        # LoRA 설정: 모든 LoraLoader 노드에 적용
-        lora_nodes = [node_id for node_id, node_data in workflow.items() if node_data.get("class_type") == "LoraLoader"]
-        if lora_nodes:
-            for node_id in lora_nodes:
+        if nodes['clip']:
+            workflow[nodes['clip']]["inputs"]["clip_name"] = self.clip_name
+            logger.info(f"CLIPLoader (node {nodes['clip']}) clip name set to: {self.clip_name}")
+        
+        if nodes['vae']:
+            workflow[nodes['vae']]["inputs"]["vae_name"] = self.vae_name
+            logger.info(f"VAELoader (node {nodes['vae']}) VAE name set to: {self.vae_name}")
+        
+        # LoRA 설정: LoraLoader 노드에 적용
+        if nodes['lora']:
+            for node_id in nodes['lora']:
                 lora_inputs = workflow[node_id].setdefault("inputs", {})
                 if self.lora_name is not None:
                     lora_inputs["lora_name"] = self.lora_name
@@ -422,77 +593,57 @@ class ComfyClient:
                         lora_inputs["strength_model"] = float(self.lora_strength_model)
                     except (TypeError, ValueError):
                         logger.warning(f"Invalid LoRA strength_model '{self.lora_strength_model}' for node {node_id}, keeping workflow default")
-            logger.info(f"LoRA 설정 적용: nodes {', '.join(lora_nodes)} name={self.lora_name}, strength_model={self.lora_strength_model}")
+            logger.info(f"LoRA 설정 적용: nodes {', '.join(nodes['lora'])} name={self.lora_name}, strength_model={self.lora_strength_model}")
         else:
             logger.debug("LoraLoader 노드가 없어 LoRA 설정을 건너뜁니다.")
         
         # UpscaleModelLoader - 업스케일 모델 이름 설정 (설정된 경우에만)
-        upscale_model_node_id = None
-        for node_id, node_data in workflow.items():
-            if node_data.get("class_type") == "UpscaleModelLoader":
-                upscale_model_node_id = node_id
-                break
-        
-        if upscale_model_node_id:
-            # 업스케일 모델 이름이 설정되어 있고, 워크플로우의 기본값과 다를 때만 변경
+        if nodes['upscale']:
             if self.upscale_model_name:
-                current_model_name = workflow[upscale_model_node_id]["inputs"].get("model_name", "")
+                current_model_name = workflow[nodes['upscale']]["inputs"].get("model_name", "")
                 if current_model_name != self.upscale_model_name:
-                    workflow[upscale_model_node_id]["inputs"]["model_name"] = self.upscale_model_name
-                    logger.info(f"UpscaleModelLoader (node {upscale_model_node_id}) model name set to: {self.upscale_model_name}")
+                    workflow[nodes['upscale']]["inputs"]["model_name"] = self.upscale_model_name
+                    logger.info(f"UpscaleModelLoader (node {nodes['upscale']}) model name set to: {self.upscale_model_name}")
                 else:
-                    logger.debug(f"UpscaleModelLoader (node {upscale_model_node_id}) using workflow default: {current_model_name}")
+                    logger.debug(f"UpscaleModelLoader (node {nodes['upscale']}) using workflow default: {current_model_name}")
             else:
                 # 업스케일 모델 이름이 설정되지 않았으면 워크플로우 기본값 사용
-                current_model_name = workflow[upscale_model_node_id]["inputs"].get("model_name", "")
-                logger.debug(f"UpscaleModelLoader (node {upscale_model_node_id}) using workflow default: {current_model_name}")
+                current_model_name = workflow[nodes['upscale']]["inputs"].get("model_name", "")
+                logger.debug(f"UpscaleModelLoader (node {nodes['upscale']}) using workflow default: {current_model_name}")
         
-        # 모든 KSampler 노드 찾아서 시드 및 생성 파라미터 설정
+        # KSampler 노드 설정: 시드 및 생성 파라미터 설정
         max_seed = 4294967295
         random_seed = random.randint(1, max_seed)
-        ksampler_count = 0
         
-        for node_id, node_data in workflow.items():
-            if node_data.get("class_type") == "KSampler":
-                ksampler_count += 1
-                # 시드 설정 (항상 랜덤, 각 KSampler마다 다른 시드 사용)
-                if ksampler_count == 1:
-                    # 첫 번째 KSampler: 메인 생성 파라미터 사용
-                    workflow[node_id]["inputs"]["seed"] = random_seed
-                    workflow[node_id]["inputs"]["steps"] = self.steps
-                    workflow[node_id]["inputs"]["cfg"] = self.cfg
-                    workflow[node_id]["inputs"]["sampler_name"] = self.sampler_name
-                    workflow[node_id]["inputs"]["scheduler"] = self.scheduler
-                    logger.info(f"KSampler (node {node_id}) 설정: seed={random_seed}, steps={self.steps}, cfg={self.cfg}, sampler={self.sampler_name}, scheduler={self.scheduler}")
-                else:
-                    # 두 번째 이후 KSampler: 시드만 랜덤으로 설정 (리파인용이므로 기존 파라미터 유지)
-                    workflow[node_id]["inputs"]["seed"] = random.randint(1, max_seed)
-                    logger.info(f"KSampler (node {node_id}) 시드 설정: {workflow[node_id]['inputs']['seed']}")
+        # 첫 번째 KSampler: 메인 생성 파라미터 사용
+        if nodes['ksampler_1']:
+            workflow[nodes['ksampler_1']]["inputs"]["seed"] = random_seed
+            workflow[nodes['ksampler_1']]["inputs"]["steps"] = self.steps
+            workflow[nodes['ksampler_1']]["inputs"]["cfg"] = self.cfg
+            workflow[nodes['ksampler_1']]["inputs"]["sampler_name"] = self.sampler_name
+            workflow[nodes['ksampler_1']]["inputs"]["scheduler"] = self.scheduler
+            logger.info(f"KSampler (node {nodes['ksampler_1']}) 설정: seed={random_seed}, steps={self.steps}, cfg={self.cfg}, sampler={self.sampler_name}, scheduler={self.scheduler}")
+        
+        # 두 번째 KSampler (2d만): 시드만 랜덤으로 설정 (리파인용이므로 기존 파라미터 유지)
+        if nodes['ksampler_2']:
+            workflow[nodes['ksampler_2']]["inputs"]["seed"] = random.randint(1, max_seed)
+            logger.info(f"KSampler (node {nodes['ksampler_2']}) 시드 설정: {workflow[nodes['ksampler_2']]['inputs']['seed']}")
         
         # 워크플로우 최종 검증 및 로깅
         logger.debug("=" * 50)
         logger.debug("Final workflow validation before sending:")
         logger.debug(f"  - Workflow nodes: {list(workflow.keys())}")
-        logger.debug(f"  - Node 3 (KSampler) exists: {'3' in workflow}")
-        logger.debug(f"  - Node 6 (Positive Prompt) exists: {'6' in workflow}")
-        logger.debug(f"  - Node 7 (Negative Prompt) exists: {'7' in workflow}")
-        logger.debug(f"  - Node 16 (UNETLoader) exists: {'16' in workflow}")
-        logger.debug(f"  - Node 19 (CheckpointLoaderSimple) exists: {'19' in workflow}")
+        logger.debug(f"  - Found nodes: {nodes}")
         
         # CheckpointLoaderSimple 노드 확인
-        checkpoint_node_id = None
-        for node_id, node_data in workflow.items():
-            if node_data.get("class_type") == "CheckpointLoaderSimple":
-                checkpoint_node_id = node_id
-                logger.debug(f"  - CheckpointLoaderSimple found at node {node_id}")
-                if node_id in workflow:
-                    logger.debug(f"    * ckpt_name: {workflow[node_id].get('inputs', {}).get('ckpt_name', 'MISSING')}")
-                break
+        if nodes['checkpoint']:
+            logger.debug(f"  - CheckpointLoaderSimple found at node {nodes['checkpoint']}")
+            logger.debug(f"    * ckpt_name: {workflow[nodes['checkpoint']].get('inputs', {}).get('ckpt_name', 'MISSING')}")
         
         # 노드 연결 검증
-        if "3" in workflow:
-            inputs = workflow["3"].get("inputs", {})
-            logger.debug(f"  - Node 3 connections:")
+        if nodes['ksampler_1'] and nodes['ksampler_1'] in workflow and isinstance(workflow[nodes['ksampler_1']], dict):
+            inputs = workflow[nodes['ksampler_1']].get("inputs", {})
+            logger.debug(f"  - Node {nodes['ksampler_1']} connections:")
             logger.debug(f"    * model: {inputs.get('model', 'MISSING')}")
             logger.debug(f"    * positive: {inputs.get('positive', 'MISSING')}")
             logger.debug(f"    * negative: {inputs.get('negative', 'MISSING')}")
@@ -516,8 +667,8 @@ class ComfyClient:
             return None
         
         try:
-            # 프롬프트 큐에 추가
-            prompt_id = self.queue_prompt(workflow)
+            # 프롬프트 큐에 추가 (찾은 노드 ID 전달)
+            prompt_id = self.queue_prompt(workflow, nodes)
             if not prompt_id:
                 return None
             
