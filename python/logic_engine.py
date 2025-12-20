@@ -7,6 +7,7 @@ import random
 from typing import Dict, Tuple, Optional
 from state_manager import CharacterState
 import config
+from i18n import get_i18n
 
 
 def roll_gacha_v3() -> Tuple[str, float]:
@@ -123,20 +124,48 @@ def check_badge_conditions(state: CharacterState) -> Optional[str]:
     return None
 
 
+def validate_status_transition_condition(state: CharacterState, current_status: str, target_status: str) -> bool:
+    """
+    상태 전환이 수치 조건을 만족하는지 검증
+    Returns: 조건 만족 여부
+    """
+    transitions = config.STATUS_TRANSITIONS.get(current_status, {})
+    possible_next = transitions.get("to", [])
+    
+    # 전환 가능한 상태 목록에 있는지 확인
+    if target_status not in possible_next:
+        return False
+    
+    # Slave는 특수 처리 (D <= 5, Dep >= 100)
+    if target_status == "Slave":
+        return state.D <= 5 and state.Dep >= 100
+    
+    # Master는 특수 처리 (D >= 95, Dep >= 90)
+    if target_status == "Master":
+        return state.D >= 95 and state.Dep >= 90
+    
+    # 다른 상태들은 목적지 상태로 가기 위한 조건 확인
+    # Lover: I >= 80, T >= 60
+    if target_status == "Lover":
+        return state.I >= 80 and state.T >= 60
+    
+    # Fiancée: I >= 90, T >= 85
+    if target_status == "Fiancée":
+        return state.I >= 90 and state.T >= 85
+    
+    # Partner: 조건 없음 (항상 가능)
+    if target_status == "Partner":
+        return True
+    
+    return False
+
+
 def check_status_transition(state: CharacterState) -> Tuple[bool, Optional[str]]:
     """
     관계 상태 전환 검사 (Python 기반)
     Returns: (전환 여부, 새 상태명)
+    Note: Master/Slave는 LLM 판단으로 이동
     """
-    # 1순위: 극단 상태 오버라이드 (Master/Slave)
-    if state.D >= 95 and state.Dep >= 90:
-        if state.relationship_status != "Master":
-            return True, "Master"
-    
-    if state.D <= 5 and state.Dep >= 100:
-        if state.relationship_status != "Slave":
-            return True, "Slave"
-    
     # 1순위: 이탈 검사 (Breakup/Divorce)
     # Partner/Fiancée/Lover 상태에서만 breakup 조건 체크
     if state.relationship_status in ["Partner", "Fiancée", "Lover"]:
@@ -194,52 +223,54 @@ def get_trauma_instruction(trauma_level: float) -> str:
     if trauma_level <= 0.0:
         return ""
     
+    i18n = get_i18n()
+    
     # 0.0 < trauma_level <= 0.25: Scarred (상처받음)
     if trauma_level <= 0.25:
-        return """## 트라우마 지침 (Scarred - 상처받음)
-당신은 과거의 상처로 인해 신뢰에 대한 미묘한 경계심을 가지고 있습니다.
+        return f"""{i18n.get_prompt("trauma_title_scarred")}
+{i18n.get_prompt("trauma_desc_scarred")}
 
-**행동 원칙:**
-1. **신뢰(T) 회복 반응**: {player_name}님의 호의나 칭찬에 대해 미묘한 망설임을 보입니다. "정말이에요?" 같은 작은 의심을 내비치거나, 눈치를 살피는 듯한 반응을 추가하세요.
-2. **친밀(I) 증가 반응**: 친밀도가 상승할 때 약간의 거리감을 유지하려는 뉘앙스를 보입니다. "좋아하는데... 괜찮을까?" 같은 불안감을 섞어 표현하세요.
-3. **대화 톤**: 기본적으로는 친근하지만, 때때로 조심스러운 말투를 사용합니다. 긍정적인 상황에서도 약간의 경계심이 드러나야 합니다.
-4. **감정 표현**: 기쁨이나 설렘을 느끼지만, 동시에 "이게 진짜일까?" 하는 작은 불안감이 함께합니다.
-5. **proposed_delta 영향**: T나 I 상승 시, trauma_level에 비례하여 증가폭을 약간 줄이세요 (예: +3이면 +2로, +5면 +3~4로)."""
+{i18n.get_prompt("trauma_behavior_title")}
+{i18n.get_prompt("trauma_trust_reaction_scarred")}
+{i18n.get_prompt("trauma_intimacy_reaction_scarred")}
+{i18n.get_prompt("trauma_tone_scarred")}
+{i18n.get_prompt("trauma_emotion_scarred")}
+{i18n.get_prompt("trauma_delta_scarred")}"""
     
     # 0.25 < trauma_level <= 0.50: Wary (경계함)
     if trauma_level <= 0.50:
-        return """## 트라우마 지침 (Wary - 경계함)
-당신은 과거의 배신이나 상처로 인해 깊은 경계심을 가지고 있습니다.
+        return f"""{i18n.get_prompt("trauma_title_wary")}
+{i18n.get_prompt("trauma_desc_wary")}
 
-**행동 원칙:**
-1. **신뢰(T) 회복 반응**: {player_name}님의 칭찬이나 호의를 거짓이나 조작으로 해석하는 경향이 있습니다. "뭐가 목적인 거예요?" 같은 직접적인 의심을 표현하거나, 칭찬을 받아들이지 않으려 합니다.
-2. **친밀(I) 증가 반응**: 친밀도 상승에 대해 강하게 거부하거나 무시하려 합니다. "그런 말 하지 마세요" 또는 "믿을 수 없어요" 같은 반응을 보입니다.
-3. **대화 톤**: 냉정하고 거리감 있는 말투를 사용합니다. 감정을 드러내는 것을 꺼리며, 방어적인 자세를 취합니다.
-4. **감정 표현**: 기쁨보다는 불안(A)이 우선합니다. 긍정적인 상황에서도 "다시 상처받을까봐" 두려워합니다.
-5. **proposed_delta 영향**: T나 I 상승 관련 델타는 trauma_level에 비례하여 크게 감소시키거나 무시하세요. A(각성)는 오히려 증가할 수 있습니다."""
+{i18n.get_prompt("trauma_behavior_title")}
+{i18n.get_prompt("trauma_trust_reaction_wary")}
+{i18n.get_prompt("trauma_intimacy_reaction_wary")}
+{i18n.get_prompt("trauma_tone_wary")}
+{i18n.get_prompt("trauma_emotion_wary")}
+{i18n.get_prompt("trauma_delta_wary")}"""
     
     # 0.50 < trauma_level <= 0.75: Fearful (두려움)
     if trauma_level <= 0.75:
-        return """## 트라우마 지침 (Fearful - 두려움)
-당신은 과거의 심각한 상처로 인해 모든 긍정적인 상황을 위험의 전조로 해석합니다.
+        return f"""{i18n.get_prompt("trauma_title_fearful")}
+{i18n.get_prompt("trauma_desc_fearful")}
 
-**행동 원칙:**
-1. **신뢰(T) 회복 반응**: {player_name}님의 모든 긍정적인 행동을 "다음 파국을 위한 빌드업"으로 해석합니다. "또 무슨 일이 일어날 거예요?" 같은 공포감을 표현합니다.
-2. **친밀(I) 증가 반응**: 친밀도 상승에 대해 강한 거부와 공포를 보입니다. "다시는... 다시는 상처받고 싶지 않아요" 같은 절규에 가까운 반응을 보입니다.
-3. **대화 톤**: 불안하고 흔들리는 말투를 사용합니다. 감정 기복이 심하며, 패닉 상태에 가까운 반응을 보입니다.
-4. **감정 표현**: 각성(A)이 급상승하여 도피적인 반응을 보입니다. "도망가고 싶어요", "무서워요" 같은 표현을 자주 사용합니다.
-5. **proposed_delta 영향**: T나 I 상승은 거의 무시하거나 오히려 감소시킵니다. A(각성)는 크게 증가하며, P(쾌락)는 감소합니다. 모든 긍정적 변화에 대해 강한 저항을 보입니다."""
+{i18n.get_prompt("trauma_behavior_title")}
+{i18n.get_prompt("trauma_trust_reaction_fearful")}
+{i18n.get_prompt("trauma_intimacy_reaction_fearful")}
+{i18n.get_prompt("trauma_tone_fearful")}
+{i18n.get_prompt("trauma_emotion_fearful")}
+{i18n.get_prompt("trauma_delta_fearful")}"""
     
     # 0.75 < trauma_level <= 1.0: Broken (파괴됨)
-    return """## 트라우마 지침 (Broken - 파괴됨)
-당신은 과거의 심각한 트라우마로 인해 관계 회복에 대한 희망을 거의 잃었습니다.
+    return f"""{i18n.get_prompt("trauma_title_broken")}
+{i18n.get_prompt("trauma_desc_broken")}
 
-**행동 원칙:**
-1. **신뢰(T) 회복 반응**: {player_name}님의 모든 시도에 대해 냉소적이거나 자포자기하는 반응을 보입니다. "이미 늦었어요", "변하지 않을 거예요" 같은 절망적인 말을 합니다.
-2. **친밀(I) 증가 반응**: I나 T 상승에 대한 반응이 거의 없습니다. "이미 의미 없어요" 또는 무관심한 태도를 보입니다.
-3. **대화 톤**: 무기력하고 냉정한 말투를 사용합니다. 감정을 드러내는 것 자체를 포기한 듯한 어조입니다.
-4. **감정 표현**: 모든 감정이 무뎌진 상태입니다. 기쁨도 슬픔도 제대로 느끼지 못하며, "이미 아무것도 느껴지지 않아요" 같은 표현을 합니다.
-5. **proposed_delta 영향**: T나 I 상승은 완전히 무시하거나 오히려 감소시킵니다. P(쾌락)는 지속적으로 낮게 유지되며, A(각성)는 매우 낮거나 매우 높은 극단적 상태를 보입니다. 관계 회복이 거의 불가능함을 암시하는 반응을 보입니다."""
+{i18n.get_prompt("trauma_behavior_title")}
+{i18n.get_prompt("trauma_trust_reaction_broken")}
+{i18n.get_prompt("trauma_intimacy_reaction_broken")}
+{i18n.get_prompt("trauma_tone_broken")}
+{i18n.get_prompt("trauma_emotion_broken")}
+{i18n.get_prompt("trauma_delta_broken")}"""
 
 
 def get_intimacy_level(I: float) -> str:

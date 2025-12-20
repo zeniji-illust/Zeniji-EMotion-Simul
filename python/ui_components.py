@@ -77,14 +77,17 @@ class UIComponents:
         """단일 이벤트 알림 HTML 생성"""
         i18n = get_i18n()
         
+        # event_type 정규화 (소문자 변환 및 특수문자 처리: é → e)
+        event_type_normalized = event_type.lower().replace("é", "e") if event_type else ""
+        
         emoji_map = {
             "jackpot": "🎰",
             "surprise": "✨",
             "badge": "🏆",
-            "Lover": "💕",
-            "Partner": "💍",
-            "Divorce": "💔",
-            "Tempted": "😈",
+            "lover": "💕",
+            "partner": "💍",
+            "divorce": "💔",
+            "tempted": "😈",
             "slave": "🔗",
             "master": "👑",
             "fiancee": "💐",
@@ -95,30 +98,31 @@ class UIComponents:
             "jackpot": i18n.get_text("event_title_jackpot"),
             "surprise": i18n.get_text("event_title_surprise"),
             "badge": i18n.get_text("event_title_badge"),
-            "Lover": i18n.get_text("event_title_lover"),
-            "Partner": i18n.get_text("event_title_partner"),
-            "Divorce": i18n.get_text("event_title_divorce"),
-            "Tempted": i18n.get_text("event_title_tempted"),
+            "lover": i18n.get_text("event_title_lover"),
+            "partner": i18n.get_text("event_title_partner"),
+            "divorce": i18n.get_text("event_title_divorce"),
+            "tempted": i18n.get_text("event_title_tempted"),
             "slave": i18n.get_text("event_title_slave"),
             "master": i18n.get_text("event_title_master"),
             "fiancee": i18n.get_text("event_title_fiancee"),
             "breakup": i18n.get_text("event_title_breakup")
         }
         
-        emoji = emoji_map.get(event_type, "🎉")
-        title = title_map.get(event_type, i18n.get_text("event_title_default"))
+        # 정규화된 event_type 사용
+        emoji = emoji_map.get(event_type_normalized, "🎉")
+        title = title_map.get(event_type_normalized, i18n.get_text("event_title_default"))
         
-        if event_type == "badge":
+        if event_type_normalized == "badge":
             message = i18n.get_text("event_msg_badge_acquired", badge_name=event_data.get('badge_name', ''))
-        elif isinstance(event_type, str) and event_type.lower() in ["lover", "partner", "fiancee", "tempted", "slave", "master"]:
+        elif event_type_normalized in ["lover", "partner", "fiancee", "tempted", "slave", "master"]:
             message = i18n.get_text("event_msg_relationship_progress", new_status=event_data.get('new_status', event_type))
-        elif isinstance(event_type, str) and event_type.lower() in ["divorce", "breakup"]:
+        elif event_type_normalized in ["divorce", "breakup"]:
             message = i18n.get_text("event_msg_relationship_change", new_status=event_data.get('new_status', event_type))
         else:
             message = event_data.get('message', i18n.get_text("event_msg_special_event"))
         
         # 뱃지는 더 강조된 색상 사용
-        if event_type == "badge":
+        if event_type_normalized == "badge":
             background = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
         else:
             background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"

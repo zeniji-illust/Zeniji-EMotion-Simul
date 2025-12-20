@@ -13,7 +13,7 @@ from logic_engine import (
     interpret_mood, check_badge_conditions, check_status_transition,
     apply_gacha_to_delta, get_trauma_instruction,
     get_intimacy_level, get_trust_level, get_dependency_level,
-    apply_trauma_on_breakup
+    apply_trauma_on_breakup, validate_status_transition_condition
 )
 from memory_manager import MemoryManager
 from i18n import get_i18n
@@ -214,13 +214,18 @@ class Brain:
             "new_badge": new_badge
         }
         
-        # LLM 보고 관계 전환 처리
+        # LLM 보고 관계 전환 처리 (수치 조건 검증 포함)
         if data.get("relationship_status_change", False):
             new_status_name = data.get("new_status_name", "")
-            if new_status_name in ["Lover", "Fiancée", "Partner"]:
-                self.state.relationship_status = new_status_name
-                response["relationship_status"] = new_status_name
-                logger.info(f"LLM reported status change: {new_status_name}")
+            # 모든 LLM 판단 상태에 대해 수치 조건 검증
+            if new_status_name in ["Lover", "Fiancée", "Partner", "Master", "Slave"]:
+                current_status = self.state.relationship_status
+                if validate_status_transition_condition(self.state, current_status, new_status_name):
+                    self.state.relationship_status = new_status_name
+                    response["relationship_status"] = new_status_name
+                    logger.info(f"LLM reported status change: {new_status_name} (validated)")
+                else:
+                    logger.warning(f"LLM reported status change to {new_status_name}, but condition not met. Current stats: P={self.state.P:.1f}, A={self.state.A:.1f}, D={self.state.D:.1f}, I={self.state.I:.1f}, T={self.state.T:.1f}, Dep={self.state.Dep:.1f}")
         
         # 이미지 생성 시 카운터 리셋
         if visual_change:
@@ -659,20 +664,32 @@ Based on the above, please summarize only important memories in 500 characters o
         if not possible_next:
             return ""
         
-        # LLM 보고가 필요한 상태만 필터링
-        llm_states = [s for s in possible_next if s in ["Lover", "Fiancée", "Partner"]]
+        # LLM 보고가 필요한 상태만 필터링: Lover, Fiancée, Partner, Master, Slave
+        llm_states = [s for s in possible_next if s in ["Lover", "Fiancée", "Partner", "Master", "Slave"]]
         
         if not llm_states:
             return ""
         
-        instruction = f"[전환 규칙] 당신은 현재 {current} 상태입니다. "
+        # 여러 상태로 갈 수 있을 때 명확하게 나열
+        instruction = f"[전환 규칙] 당신은 현재 {current} 상태입니다. 다음 상태로 전환 가능합니다: {', '.join(llm_states)}. "
+        instruction += "대화 맥락과 현재 감정 수치를 고려하여 가장 적합한 상태 하나만 선택하세요. 조건을 만족하는 여러 상태가 있을 수 있지만, 오직 하나만 선택해야 합니다.\n\n"
+        
+        # 각 상태별 조건과 키워드 나열
+        state_descriptions = []
         for state in llm_states:
             if state == "Lover":
-                instruction += "I가 높고 T가 안정적인 상태에서 '고백' 또는 '사랑' 키워드가 포함되면 relationship_status_change를 true로 설정하고 new_status_name을 'Lover'로 보고하세요. "
+                state_descriptions.append("- Lover: I >= 80, T >= 60이고 '고백' 또는 '사랑' 키워드가 포함된 경우")
             elif state == "Fiancée":
-                instruction += "I >= 90, T >= 85 상태에서 '약혼' 또는 '청혼' 키워드가 포함되면 relationship_status_change를 true로 설정하고 new_status_name을 'Fiancée'로 보고하세요. "
+                state_descriptions.append("- Fiancée: I >= 90, T >= 85이고 '약혼' 또는 '청혼' 키워드가 포함된 경우")
             elif state == "Partner":
-                instruction += "I가 최고치에 도달한 상태에서 '결혼' 또는 '부부' 키워드가 포함되면 relationship_status_change를 true로 설정하고 new_status_name을 'Partner'로 보고하세요. "
+                state_descriptions.append("- Partner: I가 최고치에 도달하고 '결혼' 또는 '부부' 키워드가 포함된 경우")
+            elif state == "Master":
+                state_descriptions.append("- Master: D >= 95, Dep >= 90이고 지배 관계가 확립된 경우")
+            elif state == "Slave":
+                state_descriptions.append("- Slave: D <= 5, Dep >= 100이고 복종 관계가 확립된 경우")
+        
+        instruction += "\n".join(state_descriptions)
+        instruction += "\n\n위 조건 중 하나를 만족하고 대화 맥락이 적절하면 relationship_status_change를 true로 설정하고 new_status_name에 선택한 상태명을 보고하세요. 조건을 만족하지 않거나 전환할 맥락이 없으면 relationship_status_change를 false로 설정하세요."
         
         return instruction
     
