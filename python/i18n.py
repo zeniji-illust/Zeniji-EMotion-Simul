@@ -977,8 +977,8 @@ TRANSLATIONS = {
                 "kr": "- **A (Arousal)**: 각성(흥분/긴장) / 저각성(차분)",
             },
             "state_dominance": {
-                "en": "- **D (Dominance)**: Initiative (confidence) / Submissive (overwhelmed)",
-                "kr": "- **D (Dominance)**: 주도권(자신감) / 피지배(압도됨)",
+                "en": "- **D (Dominance)**: Initiative/confidence in taking action and expressing oneself. In healthy relationships, D should generally maintain a balanced level (around 40-60). Low D (<30) indicates passive submission, while high D (>70) indicates strong control. **Note**: D does not decrease simply because intimacy or trust increases. A confident partner in love maintains their D level.",
+                "kr": "- **D (Dominance)**: 행동과 자기표현에 대한 주도권/자신감. 건강한 관계에서는 D가 일반적으로 균형 잡힌 수준(약 40-60)을 유지해야 합니다. D가 낮으면(<30) 수동적 복종을, 높으면(>70) 강한 지배력을 의미합니다. **주의**: I나 T가 증가한다고 해서 D가 자동으로 감소하지 않습니다. 사랑하는 관계에서도 자신감 있는 파트너는 D 수준을 유지합니다.",
             },
             "state_intimacy": {
                 "en": "- **I (Intimacy)**: Emotional intimacy",
@@ -999,6 +999,10 @@ TRANSLATIONS = {
             "state_delta_range": {
                 "en": "  **Each value must be an integer in the range -5 to 5.** If not, set it to 0. If emotions are intense, give high values after reasoning.",
                 "kr": "  **각 값은 반드시 -5 ~ 5 범위 내의 정수여야 합니다.** 만약 그렇지 않다면 0으로 설정하세요. 상황에 맞추어 감정이 격하거나 하면 추론 후에 높은 값을 주세요.",
+            },
+            "state_dominance_guidance": {
+                "en": "- **D (Dominance) Guidance**: When I or T increases, D should generally stay neutral (0) or increase slightly (+1~2), not decrease. D decreasing should only happen when the character feels genuinely overwhelmed, dominated, or loses confidence. In romantic progression, maintain D balance unless there's a specific reason for dominance shift.",
+                "kr": "- **D (Dominance) 가이드**: I나 T가 증가할 때 D는 일반적으로 중립(0)을 유지하거나 약간 증가(+1~2)해야 하며, 감소하지 않습니다. D 감소는 캐릭터가 진짜로 압도당하거나 지배당하거나 자신감을 잃는 경우에만 발생해야 합니다. 연애 관계 발전 과정에서는 지배권 변화에 특별한 이유가 없는 한 D 균형을 유지하세요.",
             },
             "behavior_priority_title": {
                 "en": "## 3. Core Behavior Rules (Logic Priority)",

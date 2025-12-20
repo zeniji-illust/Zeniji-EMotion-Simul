@@ -573,6 +573,7 @@ Based on the above, please summarize only important memories in 500 characters o
 {i18n.get_prompt("state_dependency", player_name=player_name)}
 {i18n.get_prompt("state_delta_instruction")}
 {i18n.get_prompt("state_delta_range")}
+{i18n.get_prompt("state_dominance_guidance")}
 
 {i18n.get_prompt("behavior_priority_title")}
 
