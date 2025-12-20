@@ -1351,6 +1351,42 @@ TRANSLATIONS = {
             "trauma_delta_broken": {
                 "en": "5. **proposed_delta Impact**: Completely ignore or even decrease T or I increases. P (Pleasure) remains consistently low, and A (Arousal) shows extreme states of either very low or very high. Show reactions that suggest relationship recovery is almost impossible.",
                 "kr": "5. **proposed_delta 영향**: T나 I 상승은 완전히 무시하거나 오히려 감소시킵니다. P(쾌락)는 지속적으로 낮게 유지되며, A(각성)는 매우 낮거나 매우 높은 극단적 상태를 보입니다. 관계 회복이 거의 불가능함을 암시하는 반응을 보입니다.",
+            },
+            "status_transition_rule_title": {
+                "en": "[Transition Rule]",
+                "kr": "[전환 규칙]",
+            },
+            "status_transition_current_state": {
+                "en": "You are currently in the {current} state. You can transition to the following states: {states}. ",
+                "kr": "당신은 현재 {current} 상태입니다. 다음 상태로 전환 가능합니다: {states}. ",
+            },
+            "status_transition_select_one": {
+                "en": "Consider the dialogue context and current emotional stats to select only the most appropriate state. There may be multiple states that satisfy the conditions, but you must select only one.\n\n",
+                "kr": "대화 맥락과 현재 감정 수치를 고려하여 가장 적합한 상태 하나만 선택하세요. 조건을 만족하는 여러 상태가 있을 수 있지만, 오직 하나만 선택해야 합니다.\n\n",
+            },
+            "status_transition_lover_desc": {
+                "en": "- Lover: I >= 80, T >= 60 and the character accepts a 'confession'",
+                "kr": "- Lover: I >= 80, T >= 60이고 '고백' 을 해서 캐릭터가 받아들인 경우",
+            },
+            "status_transition_fiancee_desc": {
+                "en": "- Fiancée: I >= 90, T >= 85 and the character accepts an 'engagement' or 'marriage proposal'",
+                "kr": "- Fiancée: I >= 90, T >= 85이고 '약혼' 또는 '청혼'을 해서 캐릭터가 받아들인 경우",
+            },
+            "status_transition_partner_desc": {
+                "en": "- Partner: I has reached its maximum and the character accepts keywords like 'marriage' or 'spouse'",
+                "kr": "- Partner: I가 최고치에 도달하고 '결혼' 또는 '부부' 키워드가 포함되어 이를 캐릭터가 받아들인 경우",
+            },
+            "status_transition_master_desc": {
+                "en": "- Master: D >= 95, Dep >= 90 and the character accepts the role of a master",
+                "kr": "- Master: D >= 95, Dep >= 90이고 지배 관계가 확립된 경우",
+            },
+            "status_transition_slave_desc": {
+                "en": "- Slave: D <= 5, Dep >= 100 and the character accepts the role of a slave",
+                "kr": "- Slave: D <= 5, Dep >= 100이고 복종 관계가 확립되고 스스로를 노예라고 캐릭터가 받아들인 경우",
+            },
+            "status_transition_instruction": {
+                "en": "\n\nIf one of the above conditions is satisfied and the dialogue context is appropriate, set relationship_status_change to true and report the selected state name in new_status_name. If the conditions are not satisfied or there is no context for transition, set relationship_status_change to false.",
+                "kr": "\n\n위 조건 중 하나를 만족하고 대화 맥락이 적절하면 relationship_status_change를 true로 설정하고 new_status_name에 선택한 상태명을 보고하세요. 조건을 만족하지 않거나 전환할 맥락이 없으면 relationship_status_change를 false로 설정하세요.",
             }
         },
         "defaults": {

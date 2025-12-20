@@ -670,26 +670,30 @@ Based on the above, please summarize only important memories in 500 characters o
         if not llm_states:
             return ""
         
+        i18n = get_i18n()
+        i18n.set_language(self.language)
+        
         # 여러 상태로 갈 수 있을 때 명확하게 나열
-        instruction = f"[전환 규칙] 당신은 현재 {current} 상태입니다. 다음 상태로 전환 가능합니다: {', '.join(llm_states)}. "
-        instruction += "대화 맥락과 현재 감정 수치를 고려하여 가장 적합한 상태 하나만 선택하세요. 조건을 만족하는 여러 상태가 있을 수 있지만, 오직 하나만 선택해야 합니다.\n\n"
+        states_str = ', '.join(llm_states)
+        instruction = f"{i18n.get_prompt('status_transition_rule_title')} {i18n.get_prompt('status_transition_current_state', current=current, states=states_str)}"
+        instruction += i18n.get_prompt("status_transition_select_one")
         
         # 각 상태별 조건과 키워드 나열
         state_descriptions = []
         for state in llm_states:
             if state == "Lover":
-                state_descriptions.append("- Lover: I >= 80, T >= 60이고 '고백' 또는 '사랑' 키워드가 포함된 경우")
+                state_descriptions.append(i18n.get_prompt("status_transition_lover_desc"))
             elif state == "Fiancée":
-                state_descriptions.append("- Fiancée: I >= 90, T >= 85이고 '약혼' 또는 '청혼' 키워드가 포함된 경우")
+                state_descriptions.append(i18n.get_prompt("status_transition_fiancee_desc"))
             elif state == "Partner":
-                state_descriptions.append("- Partner: I가 최고치에 도달하고 '결혼' 또는 '부부' 키워드가 포함된 경우")
+                state_descriptions.append(i18n.get_prompt("status_transition_partner_desc"))
             elif state == "Master":
-                state_descriptions.append("- Master: D >= 95, Dep >= 90이고 지배 관계가 확립된 경우")
+                state_descriptions.append(i18n.get_prompt("status_transition_master_desc"))
             elif state == "Slave":
-                state_descriptions.append("- Slave: D <= 5, Dep >= 100이고 복종 관계가 확립된 경우")
+                state_descriptions.append(i18n.get_prompt("status_transition_slave_desc"))
         
         instruction += "\n".join(state_descriptions)
-        instruction += "\n\n위 조건 중 하나를 만족하고 대화 맥락이 적절하면 relationship_status_change를 true로 설정하고 new_status_name에 선택한 상태명을 보고하세요. 조건을 만족하지 않거나 전환할 맥락이 없으면 relationship_status_change를 false로 설정하세요."
+        instruction += i18n.get_prompt("status_transition_instruction")
         
         return instruction
     
