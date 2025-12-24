@@ -846,8 +846,12 @@ class GameApp:
         
         # 3. Gacha tier 이벤트 체크 (다른 이벤트가 없을 때만)
         if not events_to_show and gacha_tier in ["jackpot", "surprise"]:
+            # i18n을 사용해 가챠 이벤트 메시지 생성
+            i18n = get_i18n()
+            tier_key = "event_title_jackpot" if gacha_tier == "jackpot" else "event_title_surprise"
+            message = f"{i18n.get_text(tier_key)} (x{multiplier:.1f})"
             events_to_show.append((gacha_tier, {
-                "message": f"{'극진한 반응' if gacha_tier == 'jackpot' else '놀라운 반응'}이 발생했습니다! (배율: x{multiplier:.1f})"
+                "message": message
             }))
         
         # 여러 알림 생성 (없으면 빈 문자열)

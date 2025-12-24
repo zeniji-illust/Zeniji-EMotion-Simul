@@ -998,7 +998,7 @@ class UIBuilder:
                     def save_scenario_handler(scenario_name, history):
                         """시나리오 저장 핸들러 (Gradio history에서 전체 대화 저장, context.recent_turns는 최근 10턴만 저장)"""
                         if not scenario_name or not scenario_name.strip():
-                            return "⚠️ 시나리오 이름을 입력해주세요."
+                            return i18n.get_text("msg_scenario_save_name_required")
                         
                         try:
                             logger.info(f"Saving scenario: {scenario_name}")
@@ -1101,11 +1101,11 @@ class UIBuilder:
                                 
                                 # conversation 저장 (전체 대화, Gradio history 기반)
                                 if not conversation_list:
-                                    return "⚠️ 저장할 대화 내용이 없습니다. 대화를 먼저 시작해주세요."
+                                    return i18n.get_text("msg_no_conversation_to_save")
                                 
                                 scenario_data["conversation"] = conversation_list
                             else:
-                                return "⚠️ 게임이 시작되지 않았습니다."
+                                return i18n.get_text("msg_game_not_started")
                             
                             # 시나리오 저장
                             scenario_name_clean = scenario_name.strip()
@@ -2004,7 +2004,7 @@ class UIBuilder:
                 f"""
                 <div style="text-align: center; margin-top: 20px; padding: 10px; color: #666;">
                     ❤️ <a href="https://zeniji.love" target="_blank" style="color: #666; text-decoration: none;">zeniji.love</a><br>
-                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">Zeniji Channel on Arcalive</a><br>
+                    💬 <a href="https://arca.live/b/zeniji" target="_blank" style="color: #666; text-decoration: none;">Zeniji Channel on Arcalive(KR)</a><br>
                     ☕ <a href="https://buymeacoffee.com/zeniji" target="_blank" style="color: #666; text-decoration: none;">Buy Me a Coffee</a><br>
                     <span style="font-size: 0.85em; opacity: 0.7;">Version {config.VERSION}</span>
                 </div>

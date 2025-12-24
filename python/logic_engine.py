@@ -48,7 +48,7 @@ def interpret_mood(state: CharacterState) -> str:
     P, A, D = state.P, state.A, state.D
     
     # Exuberant: P+, A+, D+
-    if P >= 70 and A >= 60 and D >= 60:
+    if P >= 70 and A >= 60 and D >= 50:
         return "Exuberant"
     
     # Relaxed: P+, A-, D+
@@ -60,15 +60,15 @@ def interpret_mood(state: CharacterState) -> str:
         return "Docile"
     
     # Amazed: P+, A+, D-
-    if P >= 60 and A >= 60 and D < 40:
+    if P >= 60 and A >= 60 and D < 50:
         return "Amazed"
     
     # Hostile: P-, A+, D+
-    if P < 30 and A >= 60 and D >= 60:
+    if P < 30 and A >= 60 and D >= 50:
         return "Hostile"
     
     # Anxious: P-, A+, D-
-    if P < 30 and A >= 60 and D < 40:
+    if P < 30 and A >= 60 and D < 50:
         return "Anxious"
     
     # Bored: P-, A-, D+

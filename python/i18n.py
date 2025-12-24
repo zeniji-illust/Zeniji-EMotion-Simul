@@ -1010,7 +1010,7 @@ TRANSLATIONS = {
             },
             "behavior_priority_1": {
                 "en": "1. Ensure you answer the question in player_input properly.: **{player_input}**",
-                "kr": "1. 반드시 묻는 말에 제대로 대답하세요. : **{player_input}**",
+                "kr": "1. 반드시 다음 묻는 말에 제대로 대답하세요. : **{player_input}**",
             },
             "behavior_priority_2": {
                 "en": "2. [Dynamic Change]: Advance the conversation by applying changes to the character's state (location, emotion, or conflict). Occasionally, be bold enough to introduce relevant new topics through the character's speech.",
@@ -1105,8 +1105,8 @@ TRANSLATIONS = {
                 "kr": "JSON",
             },
             "output_thought": {
-                "en": "    \"thought\": \"Character's inner thoughts, dynamically react by comprehensively judging mood and situation. Do not include reasoning about 6-axis mechanics. (**English**)\"",
-                "kr": "    \"thought\": \"캐릭터의 속마음입니다. 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**반드시 한국어로 추론하고 대답하세요, 6축 메커니즘에 대한 추론은 포함하지 말 것**)\"",
+                "en": "    \"thought\": \"Character's inner thoughts, dynamically react by comprehensively judging mood and situation. Do not include reasoning about proposed_delta. (**English**)\"",
+                "kr": "    \"thought\": \"캐릭터의 속마음입니다. 기분과 상황을 종합적으로 판단해 동적으로 반응하세요. (**반드시 한국어로 추론하고 대답하세요, proposed_delta에 대한 추론은 포함하지 말 것**)\"",
             },
             "output_speech": {
                 "en": "    \"speech\": \"Generate the character's speech only. Dynamic Interpretation: Analyze the user's input and respond by newly interpreting the situation and emotions every time. (**English**, no parentheses/action instructions). Reusing sentence structures, specific words, or idioms that appeared within the **convessaton history** is strictly prohibited. If you find yourself about to repeat the same expression, introduce a completely new topic or remain silent instead.",
@@ -1125,8 +1125,8 @@ TRANSLATIONS = {
                 "kr": "    \"visual_change_detected\": true/false",
             },
             "output_visual_prompt": {
-                "en": "    \"visual_prompt\": \"** only use english ** English tags: Imagine creatively based on situation and Generate a very detailed visual prompt based on the following categories: expression, attire, nudity level, hair, pose, background, angle, and lighting. The output must be formatted as a **structured list of tags**, where each category is followed by a **colon (:)** and detailed descriptions separated by **commas (,)**. include extensive and detailed descriptions for colors, textures, lighting, and composition, ensuring maximum visual impact and specificity",
-                "kr": "    \"visual_prompt\": \"** only use English ** English tags: Imagine creatively based on situation and Generate a very detailed visual prompt based on the following categories: expression, attire, nudity level, hair, pose, background, angle, and lighting. The output must be formatted as a **structured list of tags**, where each category is followed by a **colon (:)** and detailed descriptions separated by **commas (,)**. include extensive and detailed descriptions for colors, textures, lighting, and composition, ensuring maximum visual impact and specificity",
+                "en": "    \"visual_prompt\": \"** only use english ** English tags: Imagine creatively based on situation and generate a structured list of concise tags strictly in POV (first-person perspective) focusing only on the character; use simple, stable poses (e.g., standing still, sitting, lying down, kneeling, spread legs widely) to ensure anatomical accuracy, avoiding complex interactions or multiple subjects, and output only essential visual facts (Expression, Attire, Nudity: e.g., topless, bottomless, full nude, pussy visible, Hair, Pose, Background, Lighting) without flowery prose or redundant adjectives. ",
+                "kr": "    \"visual_prompt\": \"** only use English ** English tags: Imagine creatively based on situation and generate a structured list of concise tags strictly in POV (first-person perspective) focusing only on the character; use simple, stable poses (e.g., standing still, sitting, lying down, kneeling, spread legs widely) to ensure anatomical accuracy, avoiding complex interactions or multiple subjects, and output only essential visual facts (Expression, Attire, Nudity: e.g., topless, bottomless, full nude, pussy visible, Hair, Pose, Background, Lighting) without flowery prose or redundant adjectives. ",
             },
             "output_visual_prompt_sdxl": {
                 "en": "    \"visual_prompt\": \"** only use english ** Imagine creatively based on situation and Generate very detailed danbooru style tags with adjectives(e.g., skimpy sultry sequin cutout royal blue night dress). CRITICAL RULE: To prevent tag bleeding, always prefix body-specific tags with the character's gender (e.g., obese male, bulging male belly, muscular female, flat female chest). Output must be a single comma-separated list of short tags describing: number of characters, gender, (optional) player's specific appearance (e.g., old ugly fat man), body type, expression, clothing, hair, pose/action, (optional) sex pose, (optional) player's behavior(he is hugging her from behind, he is kissing her, etc.) also add, angle, background, lighting, and atmosphere. Do NOT write sentences or categories, only plain tags separated by commas.\"",
